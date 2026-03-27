@@ -200,6 +200,150 @@ class TestVideoAnimate:
         assert price.price == 0.50
 
 
+class TestVideoGenerateFromAudio:
+    @respx.mock
+    def test_generate_from_audio_returns_job(self, client: DeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video").mock(
+            return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
+        )
+        job = client.video.generate_from_audio(
+            prompt="sync to beat",
+            audio=b"fake-audio-data",
+            model="ltx-audio2video",
+            width=512,
+            height=512,
+            seed=42,
+            frames=97,
+            fps=24,
+        )
+        assert job.request_id == "test-uuid-123"
+
+    @respx.mock
+    def test_generate_from_audio_sends_multipart(self, client: DeapiClient) -> None:
+        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video").mock(
+            return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
+        )
+        client.video.generate_from_audio(
+            prompt="test", audio=b"audio", model="ltx", width=512,
+            height=512, seed=42, frames=97, fps=24,
+        )
+        content_type = route.calls.last.request.headers.get("content-type", "")
+        assert "multipart/form-data" in content_type
+
+    @respx.mock
+    def test_generate_from_audio_with_frame_images(self, client: DeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video").mock(
+            return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
+        )
+        job = client.video.generate_from_audio(
+            prompt="test",
+            audio=b"audio-data",
+            model="ltx",
+            width=512,
+            height=512,
+            seed=42,
+            frames=97,
+            fps=24,
+            first_frame_image=b"first-frame",
+            last_frame_image=b"last-frame",
+            guidance=7.5,
+            steps=20,
+            webhook_url="https://example.com/hook",
+        )
+        assert job.request_id == "test-uuid-123"
+
+    @respx.mock
+    def test_generate_from_audio_price(self, client: DeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video/price-calculation").mock(
+            return_value=httpx.Response(200, json=PRICE_RESPONSE)
+        )
+        price = client.video.generate_from_audio_price(
+            model="ltx", width=512, height=512, frames=97, fps=24,
+        )
+        assert price.price == 0.50
+
+    @respx.mock
+    def test_generate_from_audio_price_with_optional(self, client: DeapiClient) -> None:
+        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video/price-calculation").mock(
+            return_value=httpx.Response(200, json=PRICE_RESPONSE)
+        )
+        price = client.video.generate_from_audio_price(
+            model="ltx", width=512, height=512, frames=97, fps=24,
+            guidance=7.5, steps=20,
+        )
+        assert price.price == 0.50
+        body = json.loads(route.calls.last.request.content)
+        assert body["guidance"] == 7.5
+        assert body["steps"] == 20
+
+
+class TestVideoReplace:
+    @respx.mock
+    def test_replace_returns_job(self, client: DeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace").mock(
+            return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
+        )
+        job = client.video.replace(
+            video=b"fake-video-data",
+            ref_image=b"fake-ref-image",
+            model="vid-replace-model",
+        )
+        assert job.request_id == "test-uuid-123"
+
+    @respx.mock
+    def test_replace_sends_multipart(self, client: DeapiClient) -> None:
+        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace").mock(
+            return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
+        )
+        client.video.replace(
+            video=b"video", ref_image=b"image", model="vid-replace",
+        )
+        content_type = route.calls.last.request.headers.get("content-type", "")
+        assert "multipart/form-data" in content_type
+
+    @respx.mock
+    def test_replace_with_all_params(self, client: DeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace").mock(
+            return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
+        )
+        job = client.video.replace(
+            video=b"video",
+            ref_image=b"image",
+            model="vid-replace",
+            prompt="replace the face",
+            width=512,
+            height=512,
+            steps=8,
+            seed=42,
+            webhook_url="https://example.com/hook",
+        )
+        assert job.request_id == "test-uuid-123"
+
+    @respx.mock
+    def test_replace_price_with_video(self, client: DeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace/price").mock(
+            return_value=httpx.Response(200, json=PRICE_RESPONSE)
+        )
+        price = client.video.replace_price(
+            model="vid-replace", video=b"fake-video",
+        )
+        assert price.price == 0.50
+
+    def test_replace_price_requires_video_or_duration(self, client: DeapiClient) -> None:
+        with pytest.raises(ValueError, match="Either 'video'"):
+            client.video.replace_price(model="vid-replace")
+
+    @respx.mock
+    def test_replace_price_with_duration(self, client: DeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace/price").mock(
+            return_value=httpx.Response(200, json=PRICE_RESPONSE)
+        )
+        price = client.video.replace_price(
+            model="vid-replace", duration=10.5, width=512, height=512,
+        )
+        assert price.price == 0.50
+
+
 class TestVideoUpscale:
     @respx.mock
     def test_upscale_returns_job(self, client: DeapiClient) -> None:
@@ -359,5 +503,52 @@ class TestAsyncVideo:
         )
         price = await async_client.video.animate_price(
             model="ltx-video", width=512, height=512, frames=60, fps=24,
+        )
+        assert price.price == 0.50
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_async_generate_from_audio(self, async_client: AsyncDeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video").mock(
+            return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
+        )
+        job = await async_client.video.generate_from_audio(
+            prompt="sync to beat", audio=b"fake-audio",
+            model="ltx", width=512, height=512,
+            seed=42, frames=97, fps=24,
+        )
+        assert job.request_id == "test-uuid-123"
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_async_generate_from_audio_price(self, async_client: AsyncDeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video/price-calculation").mock(
+            return_value=httpx.Response(200, json=PRICE_RESPONSE)
+        )
+        price = await async_client.video.generate_from_audio_price(
+            model="ltx", width=512, height=512, frames=97, fps=24,
+        )
+        assert price.price == 0.50
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_async_replace(self, async_client: AsyncDeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace").mock(
+            return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
+        )
+        job = await async_client.video.replace(
+            video=b"fake-video", ref_image=b"fake-image",
+            model="vid-replace",
+        )
+        assert job.request_id == "test-uuid-123"
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_async_replace_price(self, async_client: AsyncDeapiClient) -> None:
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace/price").mock(
+            return_value=httpx.Response(200, json=PRICE_RESPONSE)
+        )
+        price = await async_client.video.replace_price(
+            model="vid-replace", video=b"fake-video",
         )
         assert price.price == 0.50

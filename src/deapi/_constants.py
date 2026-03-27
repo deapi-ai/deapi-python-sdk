@@ -30,6 +30,10 @@ ENDPOINTS: dict[str, dict[str, str]] = {
         "vid_upscale_price": "vid-upscale/price-calculation",
         "vid_rmbg": "vid-rmbg",
         "vid_rmbg_price": "vid-rmbg/price-calculation",
+        "aud2video": "aud2video",
+        "aud2video_price": "aud2video/price-calculation",
+        "vid_replace": "videos/replace",
+        "vid_replace_price": "videos/replace/price",
         # Transcription
         "transcribe": "transcribe",
         "transcribe_price": "transcribe/price-calculation",

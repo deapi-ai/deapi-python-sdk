@@ -1,6 +1,7 @@
 """Video generation examples.
 
-Demonstrates text-to-video, image-to-video, upscale, and background removal.
+Demonstrates text-to-video, image-to-video, audio-to-video, video replace,
+upscale, and background removal.
 
 Usage:
     export DEAPI_API_KEY="sk-your-api-key"
@@ -64,6 +65,65 @@ print(f"Video URL: {result.result_url}")
 #     frames=120,
 #     fps=24,
 # )
+
+# --- Audio-to-video ---
+
+# Uncomment to run — requires an audio file:
+#
+# print("\nGenerating video from audio...")
+# job = client.video.generate_from_audio(
+#     prompt="abstract shapes pulsing to the beat",
+#     audio="track.mp3",
+#     model="ltx-audio2video",
+#     width=512,
+#     height=512,
+#     seed=42,
+#     frames=97,
+#     fps=24,
+# )
+# result = job.wait()
+# print(f"Audio-to-video: {result.result_url}")
+
+# With optional first/last frame images for more control:
+#
+# job = client.video.generate_from_audio(
+#     prompt="music visualization",
+#     audio="track.mp3",
+#     first_frame_image="start_frame.png",
+#     last_frame_image="end_frame.png",
+#     model="ltx-audio2video",
+#     width=512,
+#     height=512,
+#     seed=42,
+#     frames=97,
+#     fps=24,
+#     guidance=7.5,
+#     steps=20,
+# )
+
+# --- Video replace (swap character) ---
+
+# Uncomment to run — requires a video and a reference image:
+#
+# print("\nReplacing character in video...")
+# job = client.video.replace(
+#     video="input.mp4",
+#     ref_image="reference_face.png",
+#     model="vid-replace-model",
+#     prompt="replace the character",
+# )
+# result = job.wait()
+# print(f"Video replace: {result.result_url}")
+
+# Price calculation for video replace:
+#
+# price = client.video.replace_price(
+#     model="vid-replace-model",
+#     duration=10.5,  # or pass video=b"..." to auto-detect duration
+#     width=512,
+#     height=512,
+# )
+# print(f"Replace price: ${price.price}")
 
 # --- Video upscale ---
 

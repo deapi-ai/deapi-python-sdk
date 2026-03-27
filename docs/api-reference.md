@@ -315,6 +315,72 @@ price = client.video.animate_price(
 ) -> PriceResult
 ```
 
+### `generate_from_audio()`
+
+Generate a video synced to an audio track (audio-to-video).
+
+```python
+job = client.video.generate_from_audio(
+    *,
+    prompt: str,                                           # Required
+    audio: FileInput,                                      # Required — MP3, WAV, OGG, or FLAC
+    model: str,                                            # Required
+    width: int,                                            # Required
+    height: int,                                           # Required
+    seed: int,                                             # Required
+    frames: int,                                           # Required
+    fps: int,                                              # Required
+    negative_prompt: str | None = None,
+    first_frame_image: FileInput | None = None,
+    last_frame_image: FileInput | None = None,
+    guidance: float | None = None,
+    steps: int | None = None,
+    webhook_url: str | None = None,
+) -> Job
+```
+
+### `generate_from_audio_price()`
+
+```python
+price = client.video.generate_from_audio_price(
+    *, model: str, width: int, height: int, frames: int, fps: int,
+    guidance: float | None = None, steps: int | None = None,
+) -> PriceResult
+```
+
+### `replace()`
+
+Replace a character in a video using a reference image.
+
+```python
+job = client.video.replace(
+    *,
+    video: FileInput,                                      # Required — input video
+    ref_image: FileInput,                                  # Required — reference character image
+    model: str,                                            # Required
+    prompt: str | None = None,
+    width: int | None = None,                              # Must be paired with height
+    height: int | None = None,                             # Must be paired with width
+    steps: int | None = None,                              # Default: 4
+    seed: int | None = None,                               # Default: -1
+    webhook_url: str | None = None,
+) -> Job
+```
+
+### `replace_price()`
+
+```python
+price = client.video.replace_price(
+    *, model: str,
+    video: FileInput | None = None,                        # Provide video OR duration
+    duration: float | None = None,                         # Duration in seconds (alternative to video)
+    width: int | None = None,
+    height: int | None = None,
+) -> PriceResult
+```
+
+> Provide either `video` (file) or `duration` (seconds). Raises `ValueError` if neither is given.
+
 ### `upscale()`
 
 Upscale a video to higher resolution.
