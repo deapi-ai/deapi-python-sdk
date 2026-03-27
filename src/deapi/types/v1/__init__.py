@@ -12,9 +12,10 @@ from deapi.types.v1.transcription import (
     VideoFileToTextParams,
     VideoToTextParams,
 )
-from deapi.types.v1.video import Img2VideoParams, Text2VideoParams
+from deapi.types.v1.video import Aud2VideoParams, Img2VideoParams, Text2VideoParams, VideoReplaceParams
 
 __all__ = [
+    "Aud2VideoParams",
     "AudioFileToTextParams",
     "AudioToTextParams",
     "EnhancePromptResult",
@@ -31,5 +32,6 @@ __all__ = [
     "Text2VideoParams",
     "TranscribeParams",
     "VideoFileToTextParams",
+    "VideoReplaceParams",
     "VideoToTextParams",
 ]

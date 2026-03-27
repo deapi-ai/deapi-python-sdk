@@ -11,7 +11,7 @@ Generate images, videos, audio, transcriptions, embeddings, and more — all thr
 ## Features
 
 - **Image generation** — text-to-image, image-to-image, upscale, background removal
-- **Video generation** — text-to-video, image-to-video, upscale, background removal
+- **Video generation** — text-to-video, image-to-video, audio-to-video, video replace, upscale, background removal
 - **Audio** — text-to-speech (with voice cloning), text-to-music
 - **Transcription** — video URLs, audio URLs, file uploads, unified endpoint
 - **Embeddings** — text-to-embedding (single or batch)
@@ -142,6 +142,26 @@ job = client.video.animate(
     height=512,
     frames=120,
     fps=24,
+)
+
+# Audio-to-video (sync visuals to audio)
+job = client.video.generate_from_audio(
+    prompt="visualize the music with abstract shapes",
+    audio="track.mp3",
+    model="ltx-audio2video",
+    width=512,
+    height=512,
+    seed=42,
+    frames=97,
+    fps=24,
+)
+
+# Video replace (swap character using a reference image)
+job = client.video.replace(
+    video="input.mp4",
+    ref_image="reference_face.png",
+    model="vid-replace-model",
+    prompt="replace the character",
 )
 ```
 
