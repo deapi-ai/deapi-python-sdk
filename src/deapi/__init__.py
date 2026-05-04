@@ -52,10 +52,41 @@ def _attach_v1_resources_async(client: AsyncDeapiClient) -> None:
     client.ocr = AsyncOCR(client._http_client)
 
 
+def _attach_v2_resources_sync(client: DeapiClient) -> None:
+    from deapi.resources.v2 import Audio, Embeddings, Images, Models, OCR, Prompts, Transcription, Video
+    client.images = Images(client._http_client)
+    client.models = Models(client._http_client)
+    client.audio = Audio(client._http_client)
+    client.transcription = Transcription(client._http_client)
+    client.video = Video(client._http_client)
+    client.embeddings = Embeddings(client._http_client)
+    client.prompts = Prompts(client._http_client)
+    client.ocr = OCR(client._http_client)
+
+
+def _attach_v2_resources_async(client: AsyncDeapiClient) -> None:
+    from deapi.resources.v2 import (
+        AsyncAudio, AsyncEmbeddings, AsyncImages, AsyncModels,
+        AsyncOCR, AsyncPrompts, AsyncTranscription, AsyncVideo,
+    )
+    client.images = AsyncImages(client._http_client)
+    client.models = AsyncModels(client._http_client)
+    client.audio = AsyncAudio(client._http_client)
+    client.transcription = AsyncTranscription(client._http_client)
+    client.video = AsyncVideo(client._http_client)
+    client.embeddings = AsyncEmbeddings(client._http_client)
+    client.prompts = AsyncPrompts(client._http_client)
+    client.ocr = AsyncOCR(client._http_client)
+
+
 _RESOURCE_LOADERS: dict[str, dict[str, Any]] = {
     "v1": {
         "sync": _attach_v1_resources_sync,
         "async": _attach_v1_resources_async,
+    },
+    "v2": {
+        "sync": _attach_v2_resources_sync,
+        "async": _attach_v2_resources_async,
     },
 }
 

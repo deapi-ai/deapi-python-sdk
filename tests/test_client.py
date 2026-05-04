@@ -48,7 +48,7 @@ class TestClientInit:
         assert client._config.base_url == "https://api.deapi.ai"
         assert client._config.timeout == 30.0
         assert client._config.max_retries == 3
-        assert client._config.api_version == "v1"
+        assert client._config.api_version == "v2"
 
     def test_custom_config(self) -> None:
         client = DeapiClient(
@@ -139,7 +139,9 @@ class TestErrorMapping:
             )
         )
         # max_retries=3 default, all attempts get 429 → eventually raises
-        client_no_retry = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=0)
+        client_no_retry = DeapiClient(
+            api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=0, api_version="v1"
+        )
         with pytest.raises(RateLimitError) as exc_info:
             client_no_retry.balance()
         assert exc_info.value.retry_after == 30.0
@@ -150,7 +152,9 @@ class TestErrorMapping:
         respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
             return_value=httpx.Response(500, json={"message": "Server Error"})
         )
-        client_no_retry = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=0)
+        client_no_retry = DeapiClient(
+            api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=0, api_version="v1"
+        )
         with pytest.raises(ServerError):
             client_no_retry.balance()
 
@@ -168,7 +172,7 @@ class TestBalance:
 class TestRetryLogic:
     @respx.mock
     def test_retry_on_429(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=2)
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=2, api_version="v1")
         route = respx.get(f"{TEST_BASE_URL}/api/v1/client/balance")
         route.side_effect = [
             httpx.Response(429, json={"message": "Too Many Attempts."}, headers={"Retry-After": "0"}),
@@ -180,7 +184,7 @@ class TestRetryLogic:
 
     @respx.mock
     def test_retry_on_500(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=2)
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=2, api_version="v1")
         route = respx.get(f"{TEST_BASE_URL}/api/v1/client/balance")
         route.side_effect = [
             httpx.Response(500, json={"message": "Server Error"}),
@@ -192,7 +196,7 @@ class TestRetryLogic:
 
     @respx.mock
     def test_max_retries_exhausted(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=1)
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=1, api_version="v1")
         route = respx.get(f"{TEST_BASE_URL}/api/v1/client/balance")
         route.side_effect = [
             httpx.Response(500, json={"message": "Server Error"}),
@@ -219,6 +223,6 @@ class TestAsyncClient:
         respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
             return_value=httpx.Response(200, json={"data": {"balance": 1.0}})
         )
-        async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+        async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1") as client:
             balance = await client.balance()
             assert balance.balance == 1.0

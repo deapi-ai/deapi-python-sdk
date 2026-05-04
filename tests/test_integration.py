@@ -38,13 +38,13 @@ requires_api_key = pytest.mark.skipif(
 @pytest.fixture
 def live_client() -> DeapiClient:
     """Create a real client pointed at production."""
-    return DeapiClient(api_key=DEAPI_API_KEY)
+    return DeapiClient(api_key=DEAPI_API_KEY, api_version="v1")
 
 
 @pytest.fixture
 async def live_async_client() -> AsyncDeapiClient:
     """Create a real async client pointed at production."""
-    return AsyncDeapiClient(api_key=DEAPI_API_KEY)
+    return AsyncDeapiClient(api_key=DEAPI_API_KEY, api_version="v1")
 
 
 # ---------------------------------------------------------------------------

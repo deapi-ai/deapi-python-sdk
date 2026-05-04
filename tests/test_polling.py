@@ -18,7 +18,7 @@ SUBMIT_RESPONSE = {"data": {"request_id": "job-123"}}
 class TestPolling:
     @respx.mock
     def test_job_status_single_poll(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL)
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
         respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
@@ -41,7 +41,7 @@ class TestPolling:
 
     @respx.mock
     def test_job_wait_polls_until_done(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL)
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
         respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
@@ -67,7 +67,7 @@ class TestPolling:
 
     @respx.mock
     def test_job_wait_returns_on_error(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL)
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
         respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
@@ -80,7 +80,7 @@ class TestPolling:
 
     @respx.mock
     def test_job_wait_timeout(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL)
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
         respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
@@ -93,7 +93,7 @@ class TestPolling:
 
     @respx.mock
     def test_job_repr(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL)
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
         respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
@@ -104,7 +104,7 @@ class TestPolling:
 class TestModels:
     @respx.mock
     def test_list_models(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL)
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
         respx.get(f"{TEST_BASE_URL}/api/v1/client/models").mock(
             return_value=httpx.Response(200, json={
                 "data": [
@@ -121,7 +121,7 @@ class TestModels:
 
     @respx.mock
     def test_list_models_with_filter(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL)
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
         route = respx.get(f"{TEST_BASE_URL}/api/v1/client/models").mock(
             return_value=httpx.Response(200, json={
                 "data": [{"name": "sdxl", "slug": "sdxl", "inference_types": ["txt2img"], "info": {}}],

@@ -34,7 +34,7 @@ client = DeapiClient(
     base_url: str | None = None,        # Falls back to DEAPI_BASE_URL (default: "https://api.deapi.ai")
     timeout: float | None = None,       # Request timeout in seconds (default: 30.0)
     max_retries: int | None = None,     # Retry attempts for 429/5xx/network errors (default: 3)
-    api_version: str | None = None,     # Falls back to DEAPI_API_VERSION (default: "v1")
+    api_version: str | None = None,     # Falls back to DEAPI_API_VERSION (default: "v2"; pass "v1" for the legacy API)
 )
 ```
 
@@ -456,7 +456,9 @@ price = client.transcription.create_price(
 
 ### Legacy Methods
 
-These target specific endpoints directly:
+These target specific endpoints directly. **On `api_version="v2"` (the default)
+they emit a `DeprecationWarning` and route through the unified `create()`
+endpoint** — the surface is preserved for backward compatibility with v1 code.
 
 | Method | Description |
 |--------|-------------|
@@ -508,61 +510,65 @@ Access via `client.prompts`.
 
 > Prompt methods return results **immediately** — no job polling needed.
 
-### `enhance_image()`
+### `enhance()` (Recommended)
 
-AI-enhance a text-to-image prompt.
+Unified prompt enhancement endpoint. Replaces all v1 individual `enhance_*`
+methods.
 
 ```python
-result = client.prompts.enhance_image(
-    *, prompt: str, negative_prompt: str | None = None,
+result = client.prompts.enhance(
+    *,
+    prompt: str,                                           # Required — min 3 chars
+    type: str,                                             # Required — see below
+    model_slug: str,                                       # Required — target model
+    negative_prompt: str | None = None,
+    image: FileInput | None = None,                        # Required for some types
 ) -> EnhancePromptResult
 ```
 
-### `enhance_video()`
+**Valid `type` values** (dot-notation matching the API resource):
 
-AI-enhance a video generation prompt, optionally with a reference image.
+| `type` | Routes to |
+|--------|-----------|
+| `"images.generations"` | text-to-image |
+| `"images.edits"` | image-to-image (`image` required) |
+| `"images.upscales"` | image upscale |
+| `"images.background-removals"` | image rmbg |
+| `"images.ocr"` | OCR |
+| `"videos.generations"` | text-to-video |
+| `"videos.animations"` | image-to-video (`image` required) |
+| `"videos.upscales"` | video upscale |
+| `"videos.background-removals"` | video rmbg |
+| `"audio.speech"` | TTS |
+| `"audio.music"` | text-to-music |
+| `"audio.transcriptions"` | transcription |
+| `"embeddings"` | text-to-embedding |
 
-```python
-result = client.prompts.enhance_video(
-    *, prompt: str, negative_prompt: str | None = None, image: FileInput | None = None,
-) -> EnhancePromptResult
-```
+### `enhance_price()`
 
-### `enhance_speech()`
+Same parameters as `enhance()`. Returns `PriceResult`.
 
-AI-enhance a text-to-speech prompt.
+### Legacy Methods
 
-```python
-result = client.prompts.enhance_speech(
-    *, prompt: str, lang_code: str | None = None,
-) -> EnhanceSpeechPromptResult
-```
+These mirror the v1 surface. **On `api_version="v2"` (the default) they emit
+a `DeprecationWarning` and route through the unified `enhance()` endpoint
+with the appropriate `type`.** All legacy methods now require a `model_slug`
+keyword argument (the unified endpoint requires it).
 
-### `enhance_image2image()`
+| Method | Routes to `type` |
+|--------|------------------|
+| `enhance_image(*, prompt, model_slug, negative_prompt=None)` | `images.generations` |
+| `enhance_video(*, prompt, model_slug, negative_prompt=None, image=None)` | `videos.animations` if `image` else `videos.generations` |
+| `enhance_speech(*, prompt, model_slug, lang_code=None)` | `audio.speech` (`lang_code` is ignored) |
+| `enhance_image2image(*, prompt, image, model_slug, negative_prompt=None)` | `images.edits` |
 
-AI-enhance an image-to-image prompt with a reference image.
+Each has a corresponding `_price` variant.
 
-```python
-result = client.prompts.enhance_image2image(
-    *, prompt: str, image: FileInput, negative_prompt: str | None = None,
-) -> EnhancePromptResult
-```
+### `samples()` — Removed in v2
 
-### `samples()`
-
-Get a sample prompt for inspiration.
-
-```python
-result = client.prompts.samples(
-    *, type: str,                                          # "image" or "speech"
-    topic: str | None = None,
-    lang_code: str | None = None,
-) -> SamplePromptResult
-```
-
-### Price Methods
-
-Every prompt method has a `_price` variant: `enhance_image_price()`, `enhance_video_price()`, `enhance_speech_price()`, `enhance_image2image_price()`, `samples_price()`. All return `PriceResult`.
+The `prompts.samples()` and `prompts.samples_price()` endpoints were removed
+in v2 with no direct replacement. Calling either on a v2 client raises
+`NotImplementedError`. Use `prompts.enhance(...)` with your own prompt seed.
 
 ---
 
