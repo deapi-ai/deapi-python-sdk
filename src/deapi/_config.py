@@ -3,12 +3,13 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
+from deapi._constants import PREFIXES
 from deapi._version import __version__
 
 _DEFAULT_BASE_URL = "https://api.deapi.ai"
 _DEFAULT_TIMEOUT = 30.0
 _DEFAULT_MAX_RETRIES = 3
-_DEFAULT_API_VERSION = "v1"
+_DEFAULT_API_VERSION = "v2"
 
 
 @dataclass(frozen=True)
@@ -45,4 +46,7 @@ class ClientConfig:
 
     @property
     def api_prefix(self) -> str:
-        return f"/api/{self.api_version}/client"
+        # v1: /api/v1/client, v2: /api/v2 (no /client/ segment).
+        # Falls back to /api/{version}/client for unknown versions so a future
+        # v3 with the same shape works without a code change here.
+        return PREFIXES.get(self.api_version, f"/api/{self.api_version}/client")

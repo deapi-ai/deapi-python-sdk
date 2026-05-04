@@ -59,16 +59,20 @@ client = DeapiClient(
     base_url="https://api.deapi.ai",            # or set DEAPI_BASE_URL env var
     timeout=60.0,                               # request timeout in seconds (default: 30)
     max_retries=5,                              # retry attempts for 429/5xx (default: 3)
-    api_version="v1",                           # or set DEAPI_API_VERSION env var
+    api_version="v2",                           # default; pass "v1" for the legacy API
 )
 ```
+
+**API version** — defaults to `"v2"`. The legacy `"v1"` API is still available
+(server returns deprecation headers) by passing `api_version="v1"` or setting
+`DEAPI_API_VERSION=v1`. See [Migrating from v1](#migrating-from-v1) below.
 
 **Environment variables** — if you prefer not to pass credentials in code:
 
 ```bash
 export DEAPI_API_KEY="sk-your-key"
 export DEAPI_BASE_URL="https://api.deapi.ai"    # optional
-export DEAPI_API_VERSION="v1"                    # optional
+export DEAPI_API_VERSION="v2"                    # optional, default "v2"
 ```
 
 ```python
@@ -211,7 +215,8 @@ job = client.transcription.create(
     model="WhisperLargeV3",
 )
 
-# Legacy endpoints also available:
+# Legacy v1-style methods (still callable on v2 — emit DeprecationWarning
+# and route to the unified endpoint automatically):
 # client.transcription.from_video_url(...)
 # client.transcription.from_audio_url(...)   (Twitter Spaces)
 # client.transcription.from_audio_file(...)
@@ -238,26 +243,40 @@ job = client.embeddings.create(
 
 ### Prompt Enhancement
 
+The v2 API consolidates all prompt boosting into a single unified endpoint.
 Prompt methods return results immediately (no job polling needed):
 
 ```python
-# Enhance an image prompt
-enhanced = client.prompts.enhance_image(
+# Unified enhancer (v2)
+enhanced = client.prompts.enhance(
     prompt="cat in space",
+    type="images.generations",       # or images.edits, videos.generations,
+                                      #    videos.animations, audio.speech, etc.
+    model_slug="Flux1schnell",
     negative_prompt="blurry",
 )
 print(enhanced.prompt)            # AI-enhanced prompt
 print(enhanced.negative_prompt)   # AI-enhanced negative prompt
 
-# Also available:
-# client.prompts.enhance_video(prompt=..., image=...)
-# client.prompts.enhance_speech(prompt=..., lang_code=...)
-# client.prompts.enhance_image2image(prompt=..., image=...)
+# enhance() with a reference image — required for images.edits and
+# videos.animations:
+enhanced = client.prompts.enhance(
+    prompt="repaint as watercolor",
+    type="images.edits",
+    model_slug="QwenImageEdit_Plus_NF4",
+    image="photo.jpg",
+)
 
-# Get sample prompts for inspiration
-sample = client.prompts.samples(type="image", topic="nature")
-print(sample.prompt)
+# Legacy v1-style methods (still callable on v2 — emit DeprecationWarning
+# and route to the unified endpoint with the appropriate `type`):
+# client.prompts.enhance_image(prompt=..., model_slug=...)
+# client.prompts.enhance_video(prompt=..., model_slug=..., image=...)
+# client.prompts.enhance_speech(prompt=..., model_slug=...)
+# client.prompts.enhance_image2image(prompt=..., model_slug=..., image=...)
 ```
+
+> The `prompts.samples()` endpoint was removed in v2 with no direct
+> replacement — use `prompts.enhance(...)` with your own prompt seed.
 
 ### Price Calculation
 
@@ -433,6 +452,41 @@ async def handle_webhook(request: Request):
 
     return {"ok": True}
 ```
+
+## Migrating from v1
+
+The SDK now defaults to API `v2`. The Python surface is intentionally
+unchanged — the same client method names work for both versions, only the
+underlying URLs differ. In most cases upgrading is transparent.
+
+A few cases that may need attention:
+
+| What changed | v1 | v2 |
+|--------------|----|----|
+| Default API version | `"v1"` | `"v2"` |
+| Transcription | five separate methods (`from_video_url`, `from_audio_url`, `from_audio_file`, `from_video_file`, `create`) | one unified `create()` (legacy methods still work — emit `DeprecationWarning` and route through the unified endpoint) |
+| Prompt enhancement | five separate methods (`enhance_image`, `enhance_video`, `enhance_speech`, `enhance_image2image`, `samples`) | one unified `enhance(type=..., model_slug=...)` (legacy `enhance_*` methods still work but now require `model_slug`; `samples()` was removed) |
+| Job polling URL | `/api/v1/client/request-status/{id}` | `/api/v2/jobs/{id}` (handled internally) |
+
+To stay on v1 explicitly:
+
+```python
+client = DeapiClient(api_key="sk-...", api_version="v1")
+# or: export DEAPI_API_VERSION=v1
+```
+
+If you used `prompts.enhance_image(prompt=...)` on v1, the v2 equivalent is:
+
+```python
+client.prompts.enhance(
+    prompt=...,
+    type="images.generations",
+    model_slug="Flux1schnell",   # now required
+)
+```
+
+If you used `prompts.samples(type="image", topic="nature")` on v1, there is
+no direct v2 replacement — use `prompts.enhance(...)` with your own seed.
 
 ## API Reference
 
