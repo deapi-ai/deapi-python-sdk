@@ -16,7 +16,11 @@ KEY = {
     "ip_whitelist_count": 0, "limit": None, "reset_interval": "none", "limit_used": None,
     "limit_remaining": None, "limit_resets_at": None,
 }
-USAGE = {"data": {"cost": 1.5, "requests": 10, "errors": 1, "groups": [{"key": "2026-01-01", "cost": 1.5}]}}
+USAGE = {"data": {
+    "from": "2026-01-01T00:00:00Z", "to": "2026-01-08T00:00:00Z", "group_by": "day", "currency": "USD",
+    "totals": {"cost": 1.5, "requests": 10, "errors": 1},
+    "groups": [{"key": "2026-01-01", "name": None, "cost": 1.5, "requests": 10, "errors": 1}],
+}}
 
 
 class TestAvailability:
@@ -42,10 +46,12 @@ class TestAccountSync:
     @respx.mock
     def test_get(self, client_v2: DeapiClient) -> None:
         respx.get(f"{BASE}/account").mock(return_value=httpx.Response(200, json={"data": {
-            "balance": 10.5, "currency": "USD", "auto_topup_enabled": True, "auto_topup_threshold": 5,
-            "auto_topup_amount": 20, "future_field": 1}}))
+            "balance": 10.5, "currency": "USD",
+            "auto_top_up": {"enabled": True, "threshold": 5, "amount": 20}, "future_field": 1}}))
         acc = client_v2.account.get()
-        assert acc.balance == 10.5 and acc.currency == "USD" and acc.auto_topup_enabled is True
+        assert acc.balance == 10.5 and acc.currency == "USD"
+        assert acc.auto_top_up.enabled is True and acc.auto_top_up.threshold == 5 and acc.auto_top_up.amount == 20
+        assert acc.auto_topup_enabled is True and acc.auto_topup_amount == 20
         assert acc.future_field == 1
 
     @respx.mock
@@ -64,12 +70,14 @@ class TestAccountSync:
         assert p["to"] == "2026-01-31"
         assert p["group_by"] == "key" and p["foo"] == "bar"
         assert rep.cost == 1.5 and rep.requests == 10 and rep.errors == 1
-        assert rep.groups[0]["key"] == "2026-01-01"
+        assert rep.groups[0].key == "2026-01-01" and rep.groups[0].requests == 10
+        assert rep.totals.cost == 1.5 and rep.currency == "USD" and rep.group_by == "day"
+        assert rep.from_ == "2026-01-01T00:00:00Z" and rep.to == "2026-01-08T00:00:00Z"
 
     @respx.mock
     def test_usage_list_payload(self, client_v2: DeapiClient) -> None:
         respx.get(f"{BASE}/account/usage").mock(return_value=httpx.Response(200, json={"data": [{"key": 1}]}))
-        assert client_v2.account.usage().groups == [{"key": 1}]
+        assert client_v2.account.usage().groups[0].key == 1
 
     @respx.mock
     def test_usage_no_params(self, client_v2: DeapiClient) -> None:
@@ -80,13 +88,16 @@ class TestAccountSync:
     @respx.mock
     def test_payments(self, client_v2: DeapiClient) -> None:
         route = respx.get(f"{BASE}/account/payments").mock(return_value=httpx.Response(200, json={
-            "data": [{"id": 1, "status": "paid", "amount": 20, "currency": "USD"}],
+            "data": [{"id": 1, "status": "paid", "amount": 20, "currency": "USD", "provider": "stripe",
+                      "created_at": "2026-01-01T00:00:00Z"}],
             "links": {"first": "x", "last": "y", "prev": None, "next": None},
-            "meta": {"current_page": 1, "last_page": 1, "per_page": 15, "total": 1},
+            "meta": {"current_page": 1, "from": 1, "to": 1, "last_page": 1, "per_page": 15, "total": 1},
         }))
-        page = client_v2.account.payments(page=2)
-        assert route.calls.last.request.url.params["page"] == "2"
-        assert page.data[0].status == "paid" and page.meta.total == 1
+        page = client_v2.account.payments(page=2, limit=100)
+        params = route.calls.last.request.url.params
+        assert params["page"] == "2" and params["limit"] == "100"
+        assert page.data[0].status == "paid" and page.data[0].provider == "stripe" and page.meta.total == 1
+        assert page.meta.from_ == 1 and page.meta.to == 1
 
 
 class TestKeysSync:
@@ -108,8 +119,9 @@ class TestKeysSync:
     def test_list(self, client_v2: DeapiClient) -> None:
         route = respx.get(f"{BASE}/keys").mock(return_value=httpx.Response(200, json={
             "data": [KEY], "meta": {"current_page": 1, "last_page": 2, "per_page": 15, "total": 20}}))
-        page = client_v2.keys.list(page=2)
+        page = client_v2.keys.list(page=2, per_page=20)
         assert route.calls.last.request.url.params["page"] == "2"
+        assert route.calls.last.request.url.params["per_page"] == "20"
         assert page.data[0].id == 1234 and page.meta.last_page == 2 and page.links is None
 
     @respx.mock
@@ -135,6 +147,12 @@ class TestKeysSync:
         assert k.secret == "sk-dp-9-secret" and k.id == 9
 
     @respx.mock
+    def test_create_role(self, client_v2: DeapiClient) -> None:
+        route = respx.post(f"{BASE}/keys").mock(return_value=httpx.Response(201, json={"data": {**KEY, "secret": "s"}}))
+        client_v2.keys.create(name="x", role="api")
+        assert json.loads(route.calls.last.request.content) == {"name": "x", "role": "api"}
+
+    @respx.mock
     def test_create_minimal_body(self, client_v2: DeapiClient) -> None:
         route = respx.post(f"{BASE}/keys").mock(return_value=httpx.Response(201, json={"data": {**KEY, "secret": "s"}}))
         client_v2.keys.create(name="x")
@@ -144,8 +162,8 @@ class TestKeysSync:
     def test_update_sends_only_given_fields(self, client_v2: DeapiClient) -> None:
         route = respx.patch(f"{BASE}/keys/5").mock(return_value=httpx.Response(200, json={
             "data": {**KEY, "id": 5, "status": "revoked"}}))
-        k = client_v2.keys.update(5, status="revoked")
-        assert json.loads(route.calls.last.request.content) == {"status": "revoked"}
+        k = client_v2.keys.update(5, active=False)
+        assert json.loads(route.calls.last.request.content) == {"active": False}
         assert k.status == "revoked"
 
     @respx.mock
@@ -195,7 +213,7 @@ class TestAsync:
         assert (await c.usage(5)).errors == 1
         assert (await c.create(name="n", limit=5)).secret == "sec"
         assert json.loads(create.calls.last.request.content) == {"name": "n", "limit": 5}
-        await c.update(5, status="active")
-        assert json.loads(patch.calls.last.request.content) == {"status": "active"}
+        await c.update(5, active=True)
+        assert json.loads(patch.calls.last.request.content) == {"active": True}
         assert await c.delete(5) is None
         assert delete.called

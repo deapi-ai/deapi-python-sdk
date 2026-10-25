@@ -136,7 +136,8 @@ class TestModelTypes:
     def test_live_meta_shape(self) -> None:
         r = ModelsResponse.model_validate(_page(["a"], 1, 1))
         assert r.meta.last_page == 1
-        assert r.meta.model_extra["path"] == MODELS_URL
+        assert r.meta.path == MODELS_URL and r.meta.from_ == 1 and r.meta.to == 2
+        assert r.meta.links[0]["label"] == "1"
 
     def test_model_info_card_fields(self) -> None:
         m = ModelInfo.model_validate(_model("a", tags=["new", "experimental"], status="test_model"))

@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Any
 
 from deapi._client import AsyncHTTPClient, SyncHTTPClient
-from deapi.resources.v2.account import parse_usage, unwrap, usage_params
+from deapi.resources.v2.account import page_params, parse_usage, unwrap, usage_params
 from deapi.types.v2.account import UsageReport
 from deapi.types.v2.keys import ApiKey, ApiKeyCreated, ApiKeysPage
 
@@ -22,10 +22,12 @@ def _create_body(
     limit: float | None,
     reset_interval: str | None,
     ip_whitelist: list[str] | None,
+    role: str | None,
     extra: dict[str, Any],
 ) -> dict[str, Any]:
     body: dict[str, Any] = {"name": name}
     for key, value in (
+        ("role", role),
         ("expires_at", _iso(expires_at)),
         ("limit", limit),
         ("reset_interval", reset_interval),
@@ -75,9 +77,19 @@ class KeysResource:
         url = self._client._resolve_endpoint("key_usage")
         return parse_usage(self._client.get(url, params=usage_params(from_, to, group_by, params)))
 
-    def list(self, **params: Any) -> ApiKeysPage:
-        """Every key of the account, newest first (``GET /keys``). ADMIN key only."""
-        resp = self._client.get(self._client._resolve_endpoint("keys"), params=params or None)
+    def list(
+        self,
+        *,
+        limit: int | None = None,
+        page: int | None = None,
+        per_page: int | None = None,
+        **params: Any,
+    ) -> ApiKeysPage:
+        """One page of the account's keys (``GET /keys``). ADMIN key only.
+
+        ``limit`` is the page size (default 50, max 100; ``per_page`` is an alias, ``limit`` wins).
+        """
+        resp = self._client.get(self._client._resolve_endpoint("keys"), params=page_params(limit, page, per_page, params))
         return ApiKeysPage.model_validate(resp)
 
     def get(self, key_id: int | str) -> ApiKey:
@@ -105,13 +117,17 @@ class KeysResource:
         limit: float | None = None,
         reset_interval: str | None = None,
         ip_whitelist: list[str] | None = None,
+        role: str | None = None,
         **extra: Any,
     ) -> ApiKeyCreated:
         """Create an API-role key (``POST /keys``). ADMIN key only.
 
-        The returned ``secret`` is shown ONCE; store it immediately. ADMIN keys cannot be created over the API.
+        ``reset_interval`` is ``none`` (default), ``daily``, ``weekly`` or ``monthly``; ``limit`` is the spend cap
+        (0-999999.999999, ``None`` = unlimited); ``ip_whitelist`` holds at most 20 entries. ``role`` is
+        ``api`` (default); the created key's ``role`` is always ``api``.
+        The returned ``secret`` is shown ONCE; store it immediately.
         """
-        body = _create_body(name, expires_at, limit, reset_interval, ip_whitelist, extra)
+        body = _create_body(name, expires_at, limit, reset_interval, ip_whitelist, role, extra)
         resp = self._client.request("POST", self._client._resolve_endpoint("keys"), json=body)
         return ApiKeyCreated.model_validate(unwrap(resp))
 
@@ -119,7 +135,7 @@ class KeysResource:
         self,
         key_id: int | str,
         *,
-        status: str = _UNSET,
+        active: bool = _UNSET,
         expires_at: str | date | datetime | None = _UNSET,
         limit: float | None = _UNSET,
         reset_interval: str | None = _UNSET,
@@ -128,12 +144,13 @@ class KeysResource:
     ) -> ApiKey:
         """Change a key (``PATCH /keys/{id}``). ADMIN key only.
 
-        Only the fields you pass are sent; pass ``None`` to clear a field. Disable a key with
-        ``status="revoked"`` and re-enable it with ``status="active"``.
+        Only the fields you pass are sent; pass ``None`` to clear ``expires_at`` / ``limit``. Disable a key
+        with ``active=False`` and re-enable it with ``active=True`` (the key's ``status`` then reads
+        ``revoked`` / ``active``).
         """
         body = _update_body(
             {
-                "status": status,
+                "active": active,
                 "expires_at": expires_at,
                 "limit": limit,
                 "reset_interval": reset_interval,
@@ -174,9 +191,18 @@ class AsyncKeysResource:
         url = self._client._resolve_endpoint("key_usage")
         return parse_usage(await self._client.get(url, params=usage_params(from_, to, group_by, params)))
 
-    async def list(self, **params: Any) -> ApiKeysPage:
-        """Every key of the account, newest first (``GET /keys``). ADMIN key only."""
-        resp = await self._client.get(self._client._resolve_endpoint("keys"), params=params or None)
+    async def list(
+        self,
+        *,
+        limit: int | None = None,
+        page: int | None = None,
+        per_page: int | None = None,
+        **params: Any,
+    ) -> ApiKeysPage:
+        """One page of the account's keys (``GET /keys``). ADMIN key only. See ``KeysResource.list``."""
+        resp = await self._client.get(
+            self._client._resolve_endpoint("keys"), params=page_params(limit, page, per_page, params)
+        )
         return ApiKeysPage.model_validate(resp)
 
     async def get(self, key_id: int | str) -> ApiKey:
@@ -204,10 +230,11 @@ class AsyncKeysResource:
         limit: float | None = None,
         reset_interval: str | None = None,
         ip_whitelist: list[str] | None = None,
+        role: str | None = None,
         **extra: Any,
     ) -> ApiKeyCreated:
         """Create an API-role key (``POST /keys``). ADMIN key only. The ``secret`` is shown ONCE."""
-        body = _create_body(name, expires_at, limit, reset_interval, ip_whitelist, extra)
+        body = _create_body(name, expires_at, limit, reset_interval, ip_whitelist, role, extra)
         resp = await self._client.request("POST", self._client._resolve_endpoint("keys"), json=body)
         return ApiKeyCreated.model_validate(unwrap(resp))
 
@@ -215,7 +242,7 @@ class AsyncKeysResource:
         self,
         key_id: int | str,
         *,
-        status: str = _UNSET,
+        active: bool = _UNSET,
         expires_at: str | date | datetime | None = _UNSET,
         limit: float | None = _UNSET,
         reset_interval: str | None = _UNSET,
@@ -224,12 +251,13 @@ class AsyncKeysResource:
     ) -> ApiKey:
         """Change a key (``PATCH /keys/{id}``). ADMIN key only.
 
-        Only the fields you pass are sent; pass ``None`` to clear a field. Disable a key with
-        ``status="revoked"`` and re-enable it with ``status="active"``.
+        Only the fields you pass are sent; pass ``None`` to clear ``expires_at`` / ``limit``. Disable a key
+        with ``active=False`` and re-enable it with ``active=True`` (the key's ``status`` then reads
+        ``revoked`` / ``active``).
         """
         body = _update_body(
             {
-                "status": status,
+                "active": active,
                 "expires_at": expires_at,
                 "limit": limit,
                 "reset_interval": reset_interval,

@@ -32,14 +32,27 @@ def usage_params(
     return params
 
 
+def page_params(
+    limit: int | None, page: int | None, per_page: int | None, extra: dict[str, Any]
+) -> dict[str, Any] | None:
+    params: dict[str, Any] = dict(extra)
+    if limit is not None:
+        params["limit"] = limit
+    if page is not None:
+        params["page"] = page
+    if per_page is not None:
+        params["per_page"] = per_page
+    return params or None
+
+
 def unwrap(resp: Any) -> Any:
     return resp.get("data", resp) if isinstance(resp, dict) else resp
 
 
 def parse_usage(resp: Any) -> UsageReport:
     data = unwrap(resp)
-    if isinstance(data, list):
-        return UsageReport(groups=data)
+    if isinstance(data, list):  # defensive: a bare list of groups
+        return UsageReport.model_validate({"groups": data})
     return UsageReport.model_validate(data)
 
 
@@ -74,9 +87,22 @@ class AccountResource:
         url = self._client._resolve_endpoint("account_usage")
         return parse_usage(self._client.get(url, params=usage_params(from_, to, group_by, params)))
 
-    def payments(self, **params: Any) -> PaymentsPage:
-        """Balance top-ups, newest first (``GET /account/payments``). ADMIN key only."""
-        resp = self._client.get(self._client._resolve_endpoint("account_payments"), params=params or None)
+    def payments(
+        self,
+        *,
+        limit: int | None = None,
+        page: int | None = None,
+        per_page: int | None = None,
+        **params: Any,
+    ) -> PaymentsPage:
+        """One page of balance top-ups (``GET /account/payments``). ADMIN key only.
+
+        ``limit`` is the page size (default 50, max 100; ``per_page`` is an alias, ``limit`` wins).
+        Items carry ``id``, ``amount``, ``currency``, ``status``, ``provider`` and ``created_at``.
+        """
+        resp = self._client.get(
+            self._client._resolve_endpoint("account_payments"), params=page_params(limit, page, per_page, params)
+        )
         return PaymentsPage.model_validate(resp)
 
 
@@ -108,7 +134,16 @@ class AsyncAccountResource:
         url = self._client._resolve_endpoint("account_usage")
         return parse_usage(await self._client.get(url, params=usage_params(from_, to, group_by, params)))
 
-    async def payments(self, **params: Any) -> PaymentsPage:
-        """Balance top-ups, newest first (``GET /account/payments``). ADMIN key only."""
-        resp = await self._client.get(self._client._resolve_endpoint("account_payments"), params=params or None)
+    async def payments(
+        self,
+        *,
+        limit: int | None = None,
+        page: int | None = None,
+        per_page: int | None = None,
+        **params: Any,
+    ) -> PaymentsPage:
+        """One page of balance top-ups (``GET /account/payments``). ADMIN key only. See the sync variant."""
+        resp = await self._client.get(
+            self._client._resolve_endpoint("account_payments"), params=page_params(limit, page, per_page, params)
+        )
         return PaymentsPage.model_validate(resp)
