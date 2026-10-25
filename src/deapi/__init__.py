@@ -28,7 +28,9 @@ from deapi._exceptions import (
 from deapi._polling import AsyncJob, AsyncJobs, Job, Jobs
 from deapi._types import InferenceType, JobStatus
 from deapi._version import __version__
+from deapi.transcript import Transcript, TranscriptSegment, TranscriptWord, parse_transcript, transcript_output_format
 from deapi.types.common import Balance, JobResult, JobSubmission, ModelInfo, ModelsResponse, PriceResult
+from deapi.types.v1.video import VideoDescription, VideoEvent, parse_video_description
 from deapi.webhook import InvalidSignatureError, WebhookEvent, WebhookEventData, construct_event, verify_signature
 
 
@@ -263,6 +265,15 @@ __all__ = [
     "ModelInfo",
     "ModelsResponse",
     "PriceResult",
+    # Results
+    "Transcript",
+    "TranscriptSegment",
+    "TranscriptWord",
+    "VideoDescription",
+    "VideoEvent",
+    "parse_transcript",
+    "parse_video_description",
+    "transcript_output_format",
     # Exceptions
     "AccountSuspendedError",
     "ActiveKeyLimitReachedError",
