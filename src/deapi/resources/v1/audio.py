@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from deapi._cards import TTS_KEYS, MUSIC_KEYS, MUSIC_PRICE_KEYS, afill_payload, fill_payload
 from deapi._client import AsyncHTTPClient, SyncHTTPClient
 from deapi._files import FileInput, normalize_file
 from deapi._payload import drop_none, webhook_fields
@@ -34,8 +35,8 @@ class Audio:
     ) -> Job:
         """Submit a text-to-audio (TTS) job.
 
-        ``lang``, ``format``, ``speed`` and ``sample_rate`` are only sent when set (the model
-        card's defaults apply otherwise). ``ref_audio`` makes the request multipart.
+        Unset ``lang``, ``format``, ``speed`` and ``sample_rate`` are taken from the model's
+        ``info.defaults`` (one catalogue request per client, cached; disable with ``fill_model_defaults=False``). ``ref_audio`` makes the request multipart.
         """
         url = self._client._resolve_endpoint("txt2audio")
         data, files = _build_tts_multipart(
@@ -44,6 +45,7 @@ class Audio:
             ref_text=ref_text, instruct=instruct,
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
+        data = fill_payload(self._client, data, TTS_KEYS, form=bool(files))
         if files:
             resp = self._client.post(url, data=data, files=files)
         else:
@@ -66,13 +68,18 @@ class Audio:
         voice: str | None = None,
         instruct: str | None = None,
     ) -> PriceResult:
-        """Calculate price for TTS (pass ``text`` or ``count_text``)."""
+        """Calculate price for TTS (pass ``text`` or ``count_text``).
+
+        Unset ``lang``, ``format``, ``speed`` and ``sample_rate`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``).
+        """
         url = self._client._resolve_endpoint("txt2audio_price")
         payload = drop_none({
             "model": model, "lang": lang, "format": format, "speed": speed,
             "sample_rate": sample_rate, "text": text, "count_text": count_text,
             "mode": mode, "voice": voice, "instruct": instruct,
         })
+        payload = fill_payload(self._client, payload, TTS_KEYS)
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -101,6 +108,9 @@ class Audio:
         request into multipart/form-data; without it the request is JSON. The API requires
         non-empty ``lyrics`` (use ``"[Instrumental]"`` for instrumentals) and an integer
         ``timesignature`` (2, 3, 4 or 6).
+
+        Unset ``format``, ``inference_steps`` and ``guidance_scale`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("txt2music")
         payload, files = _build_music_request(
@@ -111,6 +121,7 @@ class Audio:
             vocal_language=vocal_language, reference_audio=reference_audio,
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
+        payload = fill_payload(self._client, payload, MUSIC_KEYS, seed=True, form=bool(files))
         if files:
             resp = self._client.post(url, data=payload, files=files)
         else:
@@ -133,7 +144,11 @@ class Audio:
         timesignature: int | None = None,
         vocal_language: str | None = None,
     ) -> PriceResult:
-        """Calculate price for music generation (only model, duration and steps affect the price)."""
+        """Calculate price for music generation (only model, duration and steps affect the price).
+
+        Unset ``inference_steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``).
+        """
         url = self._client._resolve_endpoint("txt2music_price")
         payload = drop_none({
             "model": model, "duration": duration, "inference_steps": inference_steps,
@@ -141,6 +156,7 @@ class Audio:
             "bpm": bpm, "keyscale": keyscale, "timesignature": timesignature,
             "vocal_language": vocal_language,
         })
+        payload = fill_payload(self._client, payload, MUSIC_PRICE_KEYS)
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -170,8 +186,8 @@ class AsyncAudio:
     ) -> AsyncJob:
         """Submit a text-to-audio (TTS) job.
 
-        ``lang``, ``format``, ``speed`` and ``sample_rate`` are only sent when set (the model
-        card's defaults apply otherwise). ``ref_audio`` makes the request multipart.
+        Unset ``lang``, ``format``, ``speed`` and ``sample_rate`` are taken from the model's
+        ``info.defaults`` (one catalogue request per client, cached; disable with ``fill_model_defaults=False``). ``ref_audio`` makes the request multipart.
         """
         url = self._client._resolve_endpoint("txt2audio")
         data, files = _build_tts_multipart(
@@ -180,6 +196,7 @@ class AsyncAudio:
             ref_text=ref_text, instruct=instruct,
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
+        data = await afill_payload(self._client, data, TTS_KEYS, form=bool(files))
         if files:
             resp = await self._client.post(url, data=data, files=files)
         else:
@@ -202,13 +219,18 @@ class AsyncAudio:
         voice: str | None = None,
         instruct: str | None = None,
     ) -> PriceResult:
-        """Calculate price for TTS (pass ``text`` or ``count_text``)."""
+        """Calculate price for TTS (pass ``text`` or ``count_text``).
+
+        Unset ``lang``, ``format``, ``speed`` and ``sample_rate`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``).
+        """
         url = self._client._resolve_endpoint("txt2audio_price")
         payload = drop_none({
             "model": model, "lang": lang, "format": format, "speed": speed,
             "sample_rate": sample_rate, "text": text, "count_text": count_text,
             "mode": mode, "voice": voice, "instruct": instruct,
         })
+        payload = await afill_payload(self._client, payload, TTS_KEYS)
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -237,6 +259,9 @@ class AsyncAudio:
         request into multipart/form-data; without it the request is JSON. The API requires
         non-empty ``lyrics`` (use ``"[Instrumental]"`` for instrumentals) and an integer
         ``timesignature`` (2, 3, 4 or 6).
+
+        Unset ``format``, ``inference_steps`` and ``guidance_scale`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("txt2music")
         payload, files = _build_music_request(
@@ -247,6 +272,7 @@ class AsyncAudio:
             vocal_language=vocal_language, reference_audio=reference_audio,
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
+        payload = await afill_payload(self._client, payload, MUSIC_KEYS, seed=True, form=bool(files))
         if files:
             resp = await self._client.post(url, data=payload, files=files)
         else:
@@ -269,7 +295,11 @@ class AsyncAudio:
         timesignature: int | None = None,
         vocal_language: str | None = None,
     ) -> PriceResult:
-        """Calculate price for music generation (only model, duration and steps affect the price)."""
+        """Calculate price for music generation (only model, duration and steps affect the price).
+
+        Unset ``inference_steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``).
+        """
         url = self._client._resolve_endpoint("txt2music_price")
         payload = drop_none({
             "model": model, "duration": duration, "inference_steps": inference_steps,
@@ -277,6 +307,7 @@ class AsyncAudio:
             "bpm": bpm, "keyscale": keyscale, "timesignature": timesignature,
             "vocal_language": vocal_language,
         })
+        payload = await afill_payload(self._client, payload, MUSIC_PRICE_KEYS)
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 

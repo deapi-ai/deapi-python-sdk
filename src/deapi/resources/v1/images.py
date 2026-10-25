@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Union
 
+from deapi._cards import IMAGE_KEYS, afill_payload, fill_payload
 from deapi._client import AsyncHTTPClient, SyncHTTPClient
 from deapi._files import FileInput, normalize_file, normalize_files
 from deapi._payload import drop_none, form_bool, webhook_fields
@@ -35,8 +36,9 @@ class Images:
     ) -> Job:
         """Submit a text-to-image generation job.
 
-        ``width``, ``height``, ``seed``, ``steps`` and ``guidance`` are only sent when set
-        (model-card defaults apply otherwise). ``quality`` is a model tier such as
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue
+        request per client, cached; disable with ``fill_model_defaults=False``) and ``seed`` defaults to -1
+        (random). ``seed``, ``steps`` and ``guidance`` are otherwise only sent when set. ``quality`` is a model tier such as
         ``"low"``/``"medium"``/``"high"``. ``enhance_prompt=True`` boosts the prompt inside
         the job (v2; the boost fee is billed on the job).
         """
@@ -47,6 +49,7 @@ class Images:
             steps=steps, quality=quality, enhance_prompt=enhance_prompt,
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
+        payload = fill_payload(self._client, payload, IMAGE_KEYS, seed=True)
         resp = self._client.post(url, json=payload)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
@@ -66,13 +69,18 @@ class Images:
         steps: int | None = None,
         quality: str | None = None,
     ) -> PriceResult:
-        """Calculate price for text-to-image generation."""
+        """Calculate price for text-to-image generation.
+
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
+        """
         url = self._client._resolve_endpoint("txt2img_price")
         payload = _build_txt2img_payload(
             prompt=prompt, model=model, width=width, height=height, seed=seed,
             negative_prompt=negative_prompt, loras=loras, guidance=guidance,
             steps=steps, quality=quality,
         )
+        payload = fill_payload(self._client, payload, IMAGE_KEYS, seed=True)
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -99,6 +107,9 @@ class Images:
 
         Pass either ``image`` (one source) or ``images`` (several, sent as ``images[]``;
         the per-model maximum is ``max_input_images`` on the model card) -- not both.
+
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("img2img")
         data, files = _build_img2img_multipart(
@@ -108,6 +119,7 @@ class Images:
             quality=quality, enhance_prompt=enhance_prompt,
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
+        data = fill_payload(self._client, data, IMAGE_KEYS, seed=True, form=True)
         resp = self._client.post(url, data=data, files=files)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
@@ -133,6 +145,9 @@ class Images:
 
         Some models price by the input size, so pass the same ``image``/``images`` the job
         will use. Without a source image the quote is sent as JSON.
+
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("img2img_price")
         json_body, data, files = _build_img2img_price_request(
@@ -140,6 +155,7 @@ class Images:
             negative_prompt=negative_prompt, loras=loras, width=width, height=height,
             guidance=guidance, quality=quality,
         )
+        fill_payload(self._client, json_body if json_body is not None else data, IMAGE_KEYS, seed=True, form=json_body is None)
         resp = self._client.post(url, json=json_body, data=data, files=files)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -231,8 +247,9 @@ class AsyncImages:
     ) -> AsyncJob:
         """Submit a text-to-image generation job.
 
-        ``width``, ``height``, ``seed``, ``steps`` and ``guidance`` are only sent when set
-        (model-card defaults apply otherwise). ``quality`` is a model tier such as
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue
+        request per client, cached; disable with ``fill_model_defaults=False``) and ``seed`` defaults to -1
+        (random). ``seed``, ``steps`` and ``guidance`` are otherwise only sent when set. ``quality`` is a model tier such as
         ``"low"``/``"medium"``/``"high"``. ``enhance_prompt=True`` boosts the prompt inside
         the job (v2; the boost fee is billed on the job).
         """
@@ -243,6 +260,7 @@ class AsyncImages:
             steps=steps, quality=quality, enhance_prompt=enhance_prompt,
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
+        payload = await afill_payload(self._client, payload, IMAGE_KEYS, seed=True)
         resp = await self._client.post(url, json=payload)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
@@ -262,13 +280,18 @@ class AsyncImages:
         steps: int | None = None,
         quality: str | None = None,
     ) -> PriceResult:
-        """Calculate price for text-to-image generation."""
+        """Calculate price for text-to-image generation.
+
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
+        """
         url = self._client._resolve_endpoint("txt2img_price")
         payload = _build_txt2img_payload(
             prompt=prompt, model=model, width=width, height=height, seed=seed,
             negative_prompt=negative_prompt, loras=loras, guidance=guidance,
             steps=steps, quality=quality,
         )
+        payload = await afill_payload(self._client, payload, IMAGE_KEYS, seed=True)
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -295,6 +318,9 @@ class AsyncImages:
 
         Pass either ``image`` (one source) or ``images`` (several, sent as ``images[]``;
         the per-model maximum is ``max_input_images`` on the model card) -- not both.
+
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("img2img")
         data, files = _build_img2img_multipart(
@@ -304,6 +330,7 @@ class AsyncImages:
             quality=quality, enhance_prompt=enhance_prompt,
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
+        data = await afill_payload(self._client, data, IMAGE_KEYS, seed=True, form=True)
         resp = await self._client.post(url, data=data, files=files)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
@@ -329,6 +356,9 @@ class AsyncImages:
 
         Some models price by the input size, so pass the same ``image``/``images`` the job
         will use. Without a source image the quote is sent as JSON.
+
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("img2img_price")
         json_body, data, files = _build_img2img_price_request(
@@ -336,6 +366,7 @@ class AsyncImages:
             negative_prompt=negative_prompt, loras=loras, width=width, height=height,
             guidance=guidance, quality=quality,
         )
+        await afill_payload(self._client, json_body if json_body is not None else data, IMAGE_KEYS, seed=True, form=json_body is None)
         resp = await self._client.post(url, json=json_body, data=data, files=files)
         return PriceResult.model_validate(resp.get("data", resp))
 

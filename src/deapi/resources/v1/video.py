@@ -4,6 +4,7 @@ from typing import Any
 
 import httpx
 
+from deapi._cards import VIDEO_KEYS, afill_payload, fill_payload
 from deapi._client import AsyncHTTPClient, SyncHTTPClient
 from deapi._exceptions import NetworkError
 from deapi._files import FileInput, normalize_file
@@ -43,7 +44,9 @@ class Video:
     ) -> Job:
         """Submit a text-to-video generation job.
 
-        Parameters left as ``None`` are not sent; the API takes them from the model card.
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one
+        catalogue request per client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1
+        (random). Other parameters left as ``None`` are not sent.
         ``enhance_prompt`` rewrites the prompt server-side (v2; needs a prompt-booster guide for the model).
         """
         url = self._client._resolve_endpoint("txt2video")
@@ -54,6 +57,7 @@ class Video:
             enhance_prompt=enhance_prompt,
             **webhook_fields(webhook_url, webhook_secret),
         )
+        payload = fill_payload(self._client, payload, VIDEO_KEYS, seed=True)
         resp = self._client.post(url, json=payload)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
@@ -73,13 +77,18 @@ class Video:
         negative_prompt: str | None = None,
         guidance: float | None = None,
     ) -> PriceResult:
-        """Calculate price for text-to-video generation."""
+        """Calculate price for text-to-video generation.
+
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``).
+        """
         url = self._client._resolve_endpoint("txt2video_price")
         payload = _build_txt2video_payload(
             prompt=prompt, model=model, width=width, height=height,
             steps=steps, seed=seed, frames=frames, fps=fps,
             negative_prompt=negative_prompt, guidance=guidance,
         )
+        payload = fill_payload(self._client, payload, VIDEO_KEYS)
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -121,6 +130,9 @@ class Video:
         (``max_ref_images``, ``max_ref_videos``, ``max_ref_audios``, ``max_ref_files``); the API never
         accepts more than 9 images, 1 video or 3 audios. Parts are sent as ``ref_images[0]``, ``ref_images[1]``, ...
 
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
+
         Raises:
             ValueError: mixed modes, audio-only references, or no image source at all.
         """
@@ -134,6 +146,7 @@ class Video:
             enhance_prompt=enhance_prompt,
             webhook=webhook_fields(webhook_url, webhook_secret),
         )
+        data = fill_payload(self._client, data, VIDEO_KEYS, seed=True, form=True)
         resp = self._client.post(url, data=data, files=files)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
@@ -159,6 +172,9 @@ class Video:
         (``ref_images_count`` 0-9, ``ref_videos_count`` 0-1, ``ref_audios_count`` 0-3).
         More than 2 reference images applies a x2 multiplier, any reference video x3 (the highest wins,
         they do not stack). Reference audio adds no surcharge. The quote does not check model limits.
+
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``).
         """
         url = self._client._resolve_endpoint("img2video_price")
         payload = drop_none({
@@ -167,6 +183,7 @@ class Video:
             "ref_images_count": ref_images_count, "ref_videos_count": ref_videos_count,
             "ref_audios_count": ref_audios_count,
         })
+        payload = fill_payload(self._client, payload, VIDEO_KEYS)
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -191,7 +208,9 @@ class Video:
     ) -> Job:
         """Submit an audio-to-video generation job (``videos/audio-syncs`` on v2).
 
-        Parameters left as ``None`` are not sent; the API takes them from the model card.
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one
+        catalogue request per client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1
+        (random). Other parameters left as ``None`` are not sent.
         """
         url = self._client._resolve_endpoint("aud2video")
         data, files = _build_aud2video_multipart(
@@ -201,6 +220,7 @@ class Video:
             guidance=guidance, steps=steps,
             webhook=webhook_fields(webhook_url, webhook_secret),
         )
+        data = fill_payload(self._client, data, VIDEO_KEYS, seed=True, form=True)
         resp = self._client.post(url, data=data, files=files)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
@@ -217,12 +237,17 @@ class Video:
         guidance: float | None = None,
         steps: int | None = None,
     ) -> PriceResult:
-        """Calculate price for audio-to-video generation."""
+        """Calculate price for audio-to-video generation.
+
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``).
+        """
         url = self._client._resolve_endpoint("aud2video_price")
         payload = drop_none({
             "model": model, "width": width, "height": height,
             "frames": frames, "fps": fps, "guidance": guidance, "steps": steps,
         })
+        payload = fill_payload(self._client, payload, VIDEO_KEYS)
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -497,7 +522,9 @@ class AsyncVideo:
     ) -> AsyncJob:
         """Submit a text-to-video generation job.
 
-        Parameters left as ``None`` are not sent; the API takes them from the model card.
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one
+        catalogue request per client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1
+        (random). Other parameters left as ``None`` are not sent.
         ``enhance_prompt`` rewrites the prompt server-side (v2; needs a prompt-booster guide for the model).
         """
         url = self._client._resolve_endpoint("txt2video")
@@ -508,6 +535,7 @@ class AsyncVideo:
             enhance_prompt=enhance_prompt,
             **webhook_fields(webhook_url, webhook_secret),
         )
+        payload = await afill_payload(self._client, payload, VIDEO_KEYS, seed=True)
         resp = await self._client.post(url, json=payload)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
@@ -527,13 +555,18 @@ class AsyncVideo:
         negative_prompt: str | None = None,
         guidance: float | None = None,
     ) -> PriceResult:
-        """Calculate price for text-to-video generation."""
+        """Calculate price for text-to-video generation.
+
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``).
+        """
         url = self._client._resolve_endpoint("txt2video_price")
         payload = _build_txt2video_payload(
             prompt=prompt, model=model, width=width, height=height,
             steps=steps, seed=seed, frames=frames, fps=fps,
             negative_prompt=negative_prompt, guidance=guidance,
         )
+        payload = await afill_payload(self._client, payload, VIDEO_KEYS)
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -575,6 +608,9 @@ class AsyncVideo:
         (``max_ref_images``, ``max_ref_videos``, ``max_ref_audios``, ``max_ref_files``); the API never
         accepts more than 9 images, 1 video or 3 audios. Parts are sent as ``ref_images[0]``, ``ref_images[1]``, ...
 
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
+
         Raises:
             ValueError: mixed modes, audio-only references, or no image source at all.
         """
@@ -588,6 +624,7 @@ class AsyncVideo:
             enhance_prompt=enhance_prompt,
             webhook=webhook_fields(webhook_url, webhook_secret),
         )
+        data = await afill_payload(self._client, data, VIDEO_KEYS, seed=True, form=True)
         resp = await self._client.post(url, data=data, files=files)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
@@ -613,6 +650,9 @@ class AsyncVideo:
         (``ref_images_count`` 0-9, ``ref_videos_count`` 0-1, ``ref_audios_count`` 0-3).
         More than 2 reference images applies a x2 multiplier, any reference video x3 (the highest wins,
         they do not stack). Reference audio adds no surcharge. The quote does not check model limits.
+
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``).
         """
         url = self._client._resolve_endpoint("img2video_price")
         payload = drop_none({
@@ -621,6 +661,7 @@ class AsyncVideo:
             "ref_images_count": ref_images_count, "ref_videos_count": ref_videos_count,
             "ref_audios_count": ref_audios_count,
         })
+        payload = await afill_payload(self._client, payload, VIDEO_KEYS)
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -645,7 +686,9 @@ class AsyncVideo:
     ) -> AsyncJob:
         """Submit an audio-to-video generation job (``videos/audio-syncs`` on v2).
 
-        Parameters left as ``None`` are not sent; the API takes them from the model card.
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one
+        catalogue request per client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1
+        (random). Other parameters left as ``None`` are not sent.
         """
         url = self._client._resolve_endpoint("aud2video")
         data, files = _build_aud2video_multipart(
@@ -655,6 +698,7 @@ class AsyncVideo:
             guidance=guidance, steps=steps,
             webhook=webhook_fields(webhook_url, webhook_secret),
         )
+        data = await afill_payload(self._client, data, VIDEO_KEYS, seed=True, form=True)
         resp = await self._client.post(url, data=data, files=files)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
@@ -671,12 +715,17 @@ class AsyncVideo:
         guidance: float | None = None,
         steps: int | None = None,
     ) -> PriceResult:
-        """Calculate price for audio-to-video generation."""
+        """Calculate price for audio-to-video generation.
+
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        client, cached; disable with ``fill_model_defaults=False``).
+        """
         url = self._client._resolve_endpoint("aud2video_price")
         payload = drop_none({
             "model": model, "width": width, "height": height,
             "frames": frames, "fps": fps, "guidance": guidance, "steps": steps,
         })
+        payload = await afill_payload(self._client, payload, VIDEO_KEYS)
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
