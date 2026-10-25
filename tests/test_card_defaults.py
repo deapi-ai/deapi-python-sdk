@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from typing import Any
 
 import httpx
@@ -214,15 +215,77 @@ class TestFallbacksAndOptOut:
             c.images.generate(prompt="cat", model="Nope")
         assert _json(gen) == {"prompt": "cat", "model": "Nope", "seed": -1}
 
-    @pytest.mark.parametrize("status", [401, 403, 500])
+    @pytest.mark.parametrize("status", [401, 403, 404])
     @respx.mock
-    def test_fetch_failure_fills_nothing_and_is_remembered(self, status: int) -> None:
+    def test_permanent_failure_is_remembered_and_warns(self, status: int, monkeypatch: pytest.MonkeyPatch) -> None:
+        now = [1000.0]
+        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
         models = respx.get(f"{V2}/models").mock(return_value=httpx.Response(status, json={"message": "x"}))
         gen = _post("images/generations")
         with _client(max_retries=0) as c:
-            c.images.generate(prompt="cat", model="Flux1schnell")
-            c.images.generate(prompt="dog", model="Flux1schnell")
+            with pytest.warns(RuntimeWarning, match="unset parameters"):
+                c.images.generate(prompt="cat", model="Flux1schnell")
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")  # warned once per failure
+                c.images.generate(prompt="dog", model="Flux1schnell")
+                now[0] += 3600  # no cooldown retry for a permanent failure
+                c.images.generate(prompt="dog", model="Flux1schnell")
         assert _json(gen) == {"prompt": "dog", "model": "Flux1schnell", "seed": -1}
+        assert models.call_count == 1
+
+    @pytest.mark.parametrize("status", [429, 500, 503])
+    @respx.mock
+    def test_transient_failure_retried_after_cooldown(self, status: int, monkeypatch: pytest.MonkeyPatch) -> None:
+        now = [1000.0]
+        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
+        models = respx.get(f"{V2}/models").mock(return_value=httpx.Response(status, json={"message": "x"}))
+        gen = _post("images/generations")
+        with _client(max_retries=0) as c:
+            with pytest.warns(RuntimeWarning, match="will retry"):
+                c.images.generate(prompt="cat", model="Flux1schnell")
+            assert _json(gen) == {"prompt": "cat", "model": "Flux1schnell", "seed": -1}
+            c.images.generate(prompt="cat", model="Flux1schnell")  # inside the cooldown: no refetch
+            assert models.call_count == 1
+            now[0] += 61
+            _models()
+            c.images.generate(prompt="dog", model="Flux1schnell")
+        assert _json(gen)["width"] == 768 and _json(gen)["steps"] == 4
+
+    @respx.mock
+    def test_network_error_is_transient(self) -> None:
+        respx.get(f"{V2}/models").mock(side_effect=httpx.ConnectError("down"))
+        _post("images/generations")
+        with _client(max_retries=0) as c:
+            with pytest.warns(RuntimeWarning, match="will retry"):
+                c.images.generate(prompt="cat", model="Flux1schnell")
+            cache = c._http_client._card_cache
+            assert cache.retry_at > 0 and not cache.failed
+
+    @respx.mock
+    def test_threads_share_one_catalogue_fetch(self) -> None:
+        import threading
+        import time as _time
+
+        def slow(request: httpx.Request) -> httpx.Response:
+            _time.sleep(0.05)
+            return httpx.Response(200, json={"data": [FLUX], "meta": {"last_page": 1}})
+
+        models = respx.get(f"{V2}/models").mock(side_effect=slow)
+        _post("images/generations/price", PRICE)
+        errors: list[BaseException] = []
+        with _client() as c:
+            def work() -> None:
+                try:
+                    c.images.generate_price(prompt="cat", model="Flux1schnell")
+                except BaseException as exc:  # pragma: no cover
+                    errors.append(exc)
+
+            threads = [threading.Thread(target=work) for _ in range(12)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        assert not errors
         assert models.call_count == 1
 
     @respx.mock
@@ -284,7 +347,8 @@ class TestAsyncParity:
         respx.get(f"{V2}/models").mock(return_value=httpx.Response(403, json={"message": "no"}))
         gen = _post("images/generations")
         async with AsyncDeapiClient(api_key=KEY, base_url=BASE, api_version="v2", max_retries=0) as c:
-            await c.images.generate(prompt="cat", model="Flux1schnell")
+            with pytest.warns(RuntimeWarning, match="unset parameters"):
+                await c.images.generate(prompt="cat", model="Flux1schnell")
         assert _json(gen) == {"prompt": "cat", "model": "Flux1schnell", "seed": -1}
 
     @respx.mock
@@ -296,3 +360,33 @@ class TestAsyncParity:
         ) as c:
             await c.images.generate_price(prompt="cat", model="Flux1schnell")
         assert models.call_count == 0
+
+
+class TestAsyncLoops:
+    @respx.mock
+    async def test_concurrent_calls_fetch_once(self) -> None:
+        import asyncio
+
+        models = _models()
+        _post("images/generations/price", PRICE)
+        async with AsyncDeapiClient(api_key=KEY, base_url=BASE, api_version="v2") as c:
+            await asyncio.gather(*(c.images.generate_price(prompt="x", model="Flux1schnell") for _ in range(3)))
+        assert models.call_count == 2  # two catalogue pages, fetched once
+
+    @respx.mock
+    def test_client_reused_across_event_loops(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import asyncio
+
+        now = [0.0]
+        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
+        respx.get(f"{V2}/models").mock(return_value=httpx.Response(500, json={"message": "x"}))
+        _post("images/generations/price", PRICE)
+        c = AsyncDeapiClient(api_key=KEY, base_url=BASE, api_version="v2", max_retries=0)
+
+        async def once() -> None:
+            with pytest.warns(RuntimeWarning):
+                await c.images.generate_price(prompt="x", model="Flux1schnell")
+
+        asyncio.run(once())
+        now[0] += 61  # cooldown over: the second loop fetches again with its own lock
+        asyncio.run(once())

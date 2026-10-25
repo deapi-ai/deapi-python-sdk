@@ -16,11 +16,18 @@ filled; ``seed`` falls back to ``-1`` (random) where the API requires it, even w
 
 from __future__ import annotations
 
+import threading
+import time
+import warnings
 from typing import Any, Iterable
+
+from deapi._exceptions import NetworkError, RateLimitError, ServerError
 
 _PAGE_SIZE = 100
 _MAX_PAGES = 50  # safety bound on pagination
 _RANDOM_SEED = -1
+_RETRY_COOLDOWN = 60.0  # seconds before a transient catalogue failure is retried
+_CREATE_LOCK = threading.Lock()  # guards creation of a client's cache object
 
 # Fillable keys per endpoint family (spec-required card-driven params; names match the card).
 IMAGE_KEYS = ("width", "height", "steps")
@@ -60,8 +67,29 @@ class _CardCache:
 
     def __init__(self) -> None:
         self.cards: dict[str, dict[str, Any]] | None = None
-        self.failed = False
+        self.failed = False  # permanent failure: never retried
+        self.retry_at = 0.0  # monotonic time before which a transient failure is not retried
+        self.tlock = threading.Lock()  # serialises the sync fetch
         self.lock: Any = None  # asyncio.Lock, created lazily inside a running loop
+        self.lock_loop: Any = None  # the loop ``lock`` belongs to
+
+    def needs_fetch(self) -> bool:
+        return self.cards is None and not self.failed and time.monotonic() >= self.retry_at
+
+    def record_failure(self, exc: Exception) -> None:
+        """Remember a failed fetch: permanent errors for good, transient ones until a cooldown ends."""
+        transient = isinstance(exc, (RateLimitError, ServerError, NetworkError))
+        if transient:
+            self.retry_at = time.monotonic() + _RETRY_COOLDOWN
+        else:
+            self.failed = True
+        warnings.warn(
+            f"Could not load the model catalogue ({type(exc).__name__}: {exc}); model card defaults "
+            "were not applied, so unset parameters (width, height, steps, ...) will be sent empty"
+            + (f" (will retry in {int(_RETRY_COOLDOWN)} s)." if transient else "."),
+            RuntimeWarning,
+            stacklevel=4,
+        )
 
     def values(self, model: Any, keys: Iterable[str]) -> dict[str, Any] | None:
         """Card values for ``keys``: ``info.defaults``, else a value pinned by ``info.limits``.
@@ -88,8 +116,11 @@ class _CardCache:
 def _cache(client: Any) -> _CardCache:
     cache = getattr(client, "_card_cache", None)
     if cache is None:
-        cache = _CardCache()
-        client._card_cache = cache
+        with _CREATE_LOCK:
+            cache = getattr(client, "_card_cache", None)
+            if cache is None:
+                cache = _CardCache()
+                client._card_cache = cache
     return cache
 
 
@@ -153,6 +184,28 @@ def _wanted(client: Any, payload: dict[str, Any]) -> bool:
     return bool(getattr(client._config, "fill_model_defaults", True)) and bool(payload.get("model"))
 
 
+def _fetch_sync(client: Any) -> dict[str, dict[str, Any]]:
+    store: dict[str, dict[str, Any]] = {}
+    page = 1
+    while True:
+        resp = client.get(client._resolve_endpoint("models"), params={"limit": _PAGE_SIZE, "page": page})
+        _ingest(resp["data"], store)
+        if page >= min(_last_page(resp), _MAX_PAGES) or not resp["data"]:
+            return store
+        page += 1
+
+
+async def _fetch_async(client: Any) -> dict[str, dict[str, Any]]:
+    store: dict[str, dict[str, Any]] = {}
+    page = 1
+    while True:
+        resp = await client.get(client._resolve_endpoint("models"), params={"limit": _PAGE_SIZE, "page": page})
+        _ingest(resp["data"], store)
+        if page >= min(_last_page(resp), _MAX_PAGES) or not resp["data"]:
+            return store
+        page += 1
+
+
 def fill_payload(
     client: Any, payload: dict[str, Any], keys: Iterable[str], *, seed: bool = False, form: bool = False,
     tts: bool = False,
@@ -165,20 +218,13 @@ def fill_payload(
     if not _wanted(client, payload):
         return payload
     cache = _cache(client)
-    if cache.cards is None and not cache.failed:
-        try:
-            store: dict[str, dict[str, Any]] = {}
-            page = 1
-            while True:
-                resp = client.get(client._resolve_endpoint("models"),
-                                  params={"limit": _PAGE_SIZE, "page": page})
-                _ingest(resp["data"], store)
-                if page >= min(_last_page(resp), _MAX_PAGES) or not resp["data"]:
-                    break
-                page += 1
-            cache.cards = store
-        except Exception:
-            cache.failed = True
+    if cache.needs_fetch():
+        with cache.tlock:
+            if cache.needs_fetch():
+                try:
+                    cache.cards = _fetch_sync(client)
+                except Exception as exc:
+                    cache.record_failure(exc)
     return _apply(cache, payload, keys, seed, form, tts)
 
 
@@ -190,24 +236,16 @@ async def afill_payload(
     if not _wanted(client, payload):
         return payload
     cache = _cache(client)
-    if cache.cards is None and not cache.failed:
+    if cache.needs_fetch():
         import asyncio
 
-        if cache.lock is None:
-            cache.lock = asyncio.Lock()
+        loop = asyncio.get_running_loop()
+        if cache.lock is None or cache.lock_loop is not loop:  # an asyncio.Lock is bound to one loop
+            cache.lock, cache.lock_loop = asyncio.Lock(), loop
         async with cache.lock:
-            if cache.cards is None and not cache.failed:
+            if cache.needs_fetch():
                 try:
-                    store: dict[str, dict[str, Any]] = {}
-                    page = 1
-                    while True:
-                        resp = await client.get(client._resolve_endpoint("models"),
-                                                params={"limit": _PAGE_SIZE, "page": page})
-                        _ingest(resp["data"], store)
-                        if page >= min(_last_page(resp), _MAX_PAGES) or not resp["data"]:
-                            break
-                        page += 1
-                    cache.cards = store
-                except Exception:
-                    cache.failed = True
+                    cache.cards = await _fetch_async(client)
+                except Exception as exc:
+                    cache.record_failure(exc)
     return _apply(cache, payload, keys, seed, form, tts)
