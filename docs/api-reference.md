@@ -541,6 +541,7 @@ API v2 only. `current()` and `current_usage()` work with any key; everything els
 - `update()` sends only the fields you pass; pass `None` to clear `expires_at` / `limit`.
   `active=False` disables the key (status `revoked`), `active=True` re-enables it.
 - Creating beyond the account's cap raises `ActiveKeyLimitReachedError`.
+- `list()` returns the account's API-role keys only; ADMIN keys (managed in the dashboard) are not listed.
 
 ---
 
