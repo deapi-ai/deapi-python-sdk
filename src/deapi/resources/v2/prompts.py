@@ -50,7 +50,10 @@ class Prompts:
         ``type`` uses dot-notation matching the API resource (e.g.
         ``"images.generations"``, ``"images.edits"``, ``"videos.animations"``,
         ``"videos.generations"``, ``"audio.speech"``, ``"audio.music"``).
-        ``image`` is required for ``images.edits`` and ``videos.animations``.
+        ``image`` is required for ``images.edits`` and ``videos.animations``. Other types
+        (upscales, background removal, OCR, transcription, embeddings) are rejected with 422;
+        see ``deapi.types.v1.prompts.PromptBoosterType``. The returned ``negative_prompt``
+        is ignored by models without negative-prompt support.
         """
         url = self._client._resolve_endpoint("prompts_enhance")
         files = _build_enhance_parts(
@@ -141,15 +144,17 @@ class Prompts:
         prompt: str,
         model_slug: str,
         negative_prompt: str | None = None,
+        image: FileInput | None = None,
     ) -> PriceResult:
+        type_ = "videos.animations" if image is not None else "videos.generations"
         warnings.warn(
-            _LEGACY_DEPRECATION.format(name="enhance_video_price", type="videos.generations"),
+            _LEGACY_DEPRECATION.format(name="enhance_video_price", type=type_),
             DeprecationWarning,
             stacklevel=2,
         )
         return self.enhance_price(
-            prompt=prompt, type="videos.generations",
-            model_slug=model_slug, negative_prompt=negative_prompt,
+            prompt=prompt, type=type_, model_slug=model_slug,
+            negative_prompt=negative_prompt, image=image,
         )
 
     def enhance_speech(
@@ -326,15 +331,17 @@ class AsyncPrompts:
         prompt: str,
         model_slug: str,
         negative_prompt: str | None = None,
+        image: FileInput | None = None,
     ) -> PriceResult:
+        type_ = "videos.animations" if image is not None else "videos.generations"
         warnings.warn(
-            _LEGACY_DEPRECATION.format(name="enhance_video_price", type="videos.generations"),
+            _LEGACY_DEPRECATION.format(name="enhance_video_price", type=type_),
             DeprecationWarning,
             stacklevel=2,
         )
         return await self.enhance_price(
-            prompt=prompt, type="videos.generations",
-            model_slug=model_slug, negative_prompt=negative_prompt,
+            prompt=prompt, type=type_, model_slug=model_slug,
+            negative_prompt=negative_prompt, image=image,
         )
 
     async def enhance_speech(

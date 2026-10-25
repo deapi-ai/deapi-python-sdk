@@ -125,11 +125,21 @@ class Audio:
         model: str,
         duration: float,
         inference_steps: int | None = None,
+        guidance_scale: float | None = None,
+        caption: str | None = None,
+        lyrics: str | None = None,
+        bpm: int | None = None,
+        keyscale: str | None = None,
+        timesignature: int | None = None,
+        vocal_language: str | None = None,
     ) -> PriceResult:
-        """Calculate price for music generation."""
+        """Calculate price for music generation (only model, duration and steps affect the price)."""
         url = self._client._resolve_endpoint("txt2music_price")
         payload = drop_none({
             "model": model, "duration": duration, "inference_steps": inference_steps,
+            "guidance_scale": guidance_scale, "caption": caption, "lyrics": lyrics,
+            "bpm": bpm, "keyscale": keyscale, "timesignature": timesignature,
+            "vocal_language": vocal_language,
         })
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
@@ -251,11 +261,21 @@ class AsyncAudio:
         model: str,
         duration: float,
         inference_steps: int | None = None,
+        guidance_scale: float | None = None,
+        caption: str | None = None,
+        lyrics: str | None = None,
+        bpm: int | None = None,
+        keyscale: str | None = None,
+        timesignature: int | None = None,
+        vocal_language: str | None = None,
     ) -> PriceResult:
-        """Calculate price for music generation."""
+        """Calculate price for music generation (only model, duration and steps affect the price)."""
         url = self._client._resolve_endpoint("txt2music_price")
         payload = drop_none({
             "model": model, "duration": duration, "inference_steps": inference_steps,
+            "guidance_scale": guidance_scale, "caption": caption, "lyrics": lyrics,
+            "bpm": bpm, "keyscale": keyscale, "timesignature": timesignature,
+            "vocal_language": vocal_language,
         })
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
