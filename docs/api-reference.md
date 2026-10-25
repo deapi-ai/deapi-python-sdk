@@ -1,21 +1,31 @@
 # DeAPI Python SDK — API Reference
 
-Complete reference for all classes, methods, and types in the `deapi` package.
+Reference for the classes, methods and types in the `deapi` package. It describes API **v2** (the
+default). The HTTP API itself is documented at <https://docs.deapi.ai>.
+
+Install: `pip install git+https://github.com/deapi-ai/deapi-python-sdk.git` (not on PyPI yet;
+`pip install deapi` is an unrelated package).
 
 ## Table of Contents
 
 - [Client Classes](#client-classes)
+- [Conventions](#conventions)
 - [Resource: images](#resource-images)
 - [Resource: audio](#resource-audio)
 - [Resource: video](#resource-video)
 - [Resource: transcription](#resource-transcription)
 - [Resource: embeddings](#resource-embeddings)
+- [Resource: ocr](#resource-ocr)
 - [Resource: prompts](#resource-prompts)
 - [Resource: models](#resource-models)
+- [Resource: jobs](#resource-jobs)
+- [Resource: account (v2)](#resource-account-v2)
+- [Resource: keys (v2)](#resource-keys-v2)
 - [Job Polling](#job-polling)
 - [Types & Models](#types--models)
 - [Exceptions](#exceptions)
 - [Webhook Utilities](#webhook-utilities)
+- [Environment Variables](#environment-variables)
 
 ---
 
@@ -23,746 +33,647 @@ Complete reference for all classes, methods, and types in the `deapi` package.
 
 ### `DeapiClient`
 
-Synchronous client for the DeAPI platform.
-
 ```python
 from deapi import DeapiClient
 
 client = DeapiClient(
     *,
-    api_key: str | None = None,        # Falls back to DEAPI_API_KEY env var
-    base_url: str | None = None,        # Falls back to DEAPI_BASE_URL (default: "https://api.deapi.ai")
-    timeout: float | None = None,       # Request timeout in seconds (default: 30.0)
-    max_retries: int | None = None,     # Retry attempts for 429/5xx/network errors (default: 3)
-    api_version: str | None = None,     # Falls back to DEAPI_API_VERSION (default: "v2"; pass "v1" for the legacy API)
+    api_key: str | None = None,            # Falls back to DEAPI_API_KEY. Format: sk-dp-<id>-<secret>
+    base_url: str | None = None,           # Falls back to DEAPI_BASE_URL (default "https://api.deapi.ai")
+    timeout: float | None = None,          # Request timeout in seconds (default 30.0)
+    max_retries: int | None = None,        # Retry attempts (default 3), see "Retry policy"
+    api_version: str | None = None,        # Falls back to DEAPI_API_VERSION (default "v2"; "v1" = legacy API)
+    fill_model_defaults: bool | None = None,  # Falls back to DEAPI_FILL_MODEL_DEFAULTS (default on)
 )
 ```
 
-**Methods:**
+API keys look like `sk-dp-<id>-<secret>`; older `<id>|<secret>` keys keep working. Keys have a
+role: ADMIN keys can use every endpoint, API keys get 403 `insufficient_permissions` on balance,
+account and key-management endpoints.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `client.balance()` | `Balance` | Get current account balance |
-| `client.close()` | `None` | Close the underlying HTTP connection |
+| `client.balance()` | `Balance` | Account balance (ADMIN key) |
+| `client.close()` | `None` | Close the HTTP connection |
 
-**Resource namespaces:** `client.images`, `client.audio`, `client.video`, `client.transcription`, `client.embeddings`, `client.models`, `client.prompts`
-
-**Context manager:**
+**Resources:** `images`, `audio`, `video`, `transcription`, `embeddings`, `ocr`, `prompts`, `models`,
+`jobs`, and on v2 only `account` and `keys`.
 
 ```python
-with DeapiClient(api_key="sk-...") as client:
-    ...  # client.close() called automatically
+with DeapiClient() as client:
+    ...  # client.close() on exit
 ```
 
 ### `AsyncDeapiClient`
 
-Asynchronous client — identical API surface, all methods are `async`.
+Same API surface, every method is `async`.
 
 ```python
 from deapi import AsyncDeapiClient
 
-async with AsyncDeapiClient(api_key="sk-...") as client:
+async with AsyncDeapiClient() as client:
     balance = await client.balance()
 ```
+
+### Model-card defaults
+
+Parameters that depend on the model (`width`, `height`, `steps`, `frames`, `fps`, `seed`, `lang`,
+`speed`, `format`, `sample_rate`, `inference_steps`, `guidance_scale`, ...) are optional in the
+method signatures. When one is unset, the SDK fills it from the model's `info.defaults` in
+`GET /models` (one catalogue request per client, cached) and `seed` defaults to `-1` (random).
+Explicit values always win. Disable with `DeapiClient(fill_model_defaults=False)` or
+`DEAPI_FILL_MODEL_DEFAULTS=0`; the API then applies its own defaults.
+
+---
+
+## Conventions
+
+- `FileInput` is `str` (path), `Path`, `bytes` or a binary file-like object.
+- Every job method returns a `Job` and has a `*_price` counterpart returning `PriceResult`. Price
+  methods take the same model parameters (not `webhook_*`). The `enhance_prompt` fee is billed on
+  the job and is **not** included in a price quote.
+- **Webhook parameters** on every job method: `webhook_url: str | None` (must be `https`) and
+  `webhook_secret: str | None` (32-255 characters, requires `webhook_url`). The secret is a per-job
+  HMAC key used to sign that job's deliveries; verify with [`construct_event`](#webhook-utilities).
+  Invalid combinations raise `ValueError` before any request is sent.
+- Methods are keyword-only.
 
 ---
 
 ## Resource: images
 
-Access via `client.images`.
-
 ### `generate()`
 
-Generate an image from a text prompt (text-to-image).
+Text-to-image.
 
 ```python
 job = client.images.generate(
     *,
-    prompt: str,                                           # Required
-    model: str,                                            # Required
-    width: int,                                            # Required
-    height: int,                                           # Required
-    seed: int,                                             # Required
-    negative_prompt: str | None = None,
-    loras: list[LoraWeight | dict] | None = None,          # [{"name": "...", "weight": 0.8}]
-    guidance: float | None = None,
+    prompt: str,
+    model: str,
+    width: int | None = None,
+    height: int | None = None,
+    seed: int | None = None,
     steps: int | None = None,
+    guidance: float | None = None,
+    negative_prompt: str | None = None,
+    loras: list[LoraWeight | dict] | None = None,   # [{"name": "...", "weight": 0.8}]
+    quality: str | None = None,                     # model tier, e.g. "low" | "medium" | "high"
+    enhance_prompt: bool | None = None,             # boost the prompt inside the job (v2)
     webhook_url: str | None = None,
+    webhook_secret: str | None = None,
 ) -> Job
 ```
 
-### `generate_price()`
-
-Calculate the price for a text-to-image generation. Same parameters as `generate()` except `webhook_url`.
-
-```python
-price = client.images.generate_price(...) -> PriceResult
-```
+`generate_price()` takes the same parameters except `enhance_prompt` and `webhook_*`.
 
 ### `transform()`
 
-Transform an existing image using a text prompt (image-to-image). Accepts file uploads.
+Image edit (image-to-image).
 
 ```python
 job = client.images.transform(
     *,
-    prompt: str,                                           # Required
-    model: str,                                            # Required
-    steps: int,                                            # Required
-    seed: int,                                             # Required
-    image: FileInput | None = None,                        # Single image (mutually exclusive with images)
-    images: list[FileInput] | None = None,                 # Multiple images
+    prompt: str,
+    model: str,
+    image: FileInput | None = None,          # one source ...
+    images: list[FileInput] | None = None,   # ... or several (sent as images[]); not both
+    steps: int | None = None,
+    seed: int | None = None,
     negative_prompt: str | None = None,
     loras: list[LoraWeight | dict] | None = None,
     width: int | None = None,
     height: int | None = None,
     guidance: float | None = None,
+    quality: str | None = None,
+    enhance_prompt: bool | None = None,
     webhook_url: str | None = None,
+    webhook_secret: str | None = None,
 ) -> Job
 ```
 
-`FileInput` accepts: `str` (path), `Path`, `bytes`, or `BinaryIO` (file-like object).
+The per-model maximum number of sources is `max_input_images` on the model card.
+`transform_price()` takes the same parameters (pass the same `image` / `images`: some models price
+by input size).
 
-### `transform_price()`
-
-```python
-price = client.images.transform_price(
-    *, prompt: str, model: str, steps: int, seed: int,
-    loras: list | None = None, guidance: float | None = None,
-) -> PriceResult
-```
-
-### `upscale()`
-
-Upscale an image to higher resolution.
+### `upscale()` / `remove_background()`
 
 ```python
-job = client.images.upscale(
-    *,
-    image: FileInput,                                      # Required
-    model: str,                                            # Required
-    webhook_url: str | None = None,
-) -> Job
+client.images.upscale(*, image: FileInput, model: str, webhook_url=None, webhook_secret=None) -> Job
+client.images.remove_background(*, image: FileInput, model: str, webhook_url=None, webhook_secret=None) -> Job
 ```
 
-### `upscale_price()`
-
-```python
-price = client.images.upscale_price(
-    *, model: str,
-    image: FileInput | None = None,                        # Provide image OR width+height
-    width: int | None = None,
-    height: int | None = None,
-) -> PriceResult
-```
-
-### `remove_background()`
-
-Remove the background from an image.
-
-```python
-job = client.images.remove_background(
-    *,
-    image: FileInput,                                      # Required
-    model: str,                                            # Required
-    webhook_url: str | None = None,
-) -> Job
-```
-
-### `remove_background_price()`
-
-```python
-price = client.images.remove_background_price(
-    *, model: str,
-    image: FileInput | None = None,                        # Provide image OR width+height
-    width: int | None = None,
-    height: int | None = None,
-) -> PriceResult
-```
+`upscale_price()` / `remove_background_price()`: `model`, plus `image` **or** `width` + `height`.
 
 ---
 
 ## Resource: audio
 
-Access via `client.audio`.
-
 ### `synthesize()`
 
-Convert text to speech (TTS). Supports voice cloning via `ref_audio`.
+Text-to-speech, with voice cloning via `ref_audio`.
 
 ```python
 job = client.audio.synthesize(
     *,
-    text: str,                                             # Required
-    model: str,                                            # Required
-    lang: str,                                             # Required — language code (e.g. "en-us")
-    format: str,                                           # Required — "wav", "flac", or "mp3"
-    speed: float,                                          # Required — speech speed (min 0.5)
-    sample_rate: float,                                    # Required — Hz (model-specific)
-    mode: str | None = None,                               # "custom_voice", "voice_clone", or "voice_design"
-    voice: str | None = None,                              # Required when mode is "custom_voice"
-    ref_audio: FileInput | None = None,                    # Required for "voice_clone" mode
-    ref_text: str | None = None,                           # Optional reference text for voice cloning
-    instruct: str | None = None,                           # Required for "voice_design" mode
+    text: str,
+    model: str,
+    lang: str | None = None,            # e.g. "en-us"
+    format: str | None = None,          # "wav" | "flac" | "mp3"
+    speed: float | None = None,
+    sample_rate: float | None = None,
+    mode: str | None = None,            # "custom_voice" | "voice_clone" | "voice_design"
+    voice: str | None = None,           # for "custom_voice"
+    ref_audio: FileInput | None = None, # for "voice_clone"
+    ref_text: str | None = None,
+    instruct: str | None = None,        # for "voice_design"
     webhook_url: str | None = None,
+    webhook_secret: str | None = None,
 ) -> Job
 ```
 
-### `synthesize_price()`
-
-```python
-price = client.audio.synthesize_price(
-    *, model: str, lang: str, format: str, speed: float, sample_rate: float,
-    text: str | None = None,                               # Provide text OR count_text
-    count_text: int | None = None,                         # Character count (skip sending full text)
-    mode: str | None = None,
-    voice: str | None = None,
-    instruct: str | None = None,
-) -> PriceResult
-```
+`synthesize_price()`: same, but pass `text` **or** `count_text` (character count), no `ref_*`.
 
 ### `compose()`
 
-Generate music from a text description.
+Text-to-music, optionally conditioned on a style reference clip.
 
 ```python
 job = client.audio.compose(
     *,
-    caption: str,                                          # Required — music description
-    model: str,                                            # Required
-    duration: float,                                       # Required — seconds (10–600)
-    inference_steps: int,                                  # Required
-    guidance_scale: float,                                 # Required
-    seed: int,                                             # Required
-    format: str,                                           # Required — "wav", "flac", or "mp3"
-    lyrics: str | None = None,
-    bpm: int | None = None,                                # 30–300
+    caption: str,
+    model: str,
+    duration: float,                        # seconds
+    inference_steps: int | None = None,
+    guidance_scale: float | None = None,
+    seed: int | None = None,
+    format: str | None = None,              # "wav" | "flac" | "mp3"
+    lyrics: str | None = None,              # use "[Instrumental]" for instrumentals
+    bpm: int | None = None,                 # 30-300
     keyscale: str | None = None,
-    timesignature: int | None = None,                      # 2, 3, 4, or 6
+    timesignature: int | None = None,       # 2, 3, 4 or 6
     vocal_language: str | None = None,
+    reference_audio: FileInput | None = None,   # style reference; switches the request to multipart
     webhook_url: str | None = None,
+    webhook_secret: str | None = None,
 ) -> Job
 ```
 
-### `compose_price()`
-
-```python
-price = client.audio.compose_price(
-    *, model: str, duration: float, inference_steps: int,
-) -> PriceResult
-```
+`compose_price()`: `model`, `duration`, and optionally `inference_steps`, `guidance_scale`,
+`caption`, `lyrics`, `bpm`, `keyscale`, `timesignature`, `vocal_language`.
 
 ---
 
 ## Resource: video
 
-Access via `client.video`.
-
 ### `generate()`
 
-Generate a video from a text prompt (text-to-video).
+Text-to-video.
 
 ```python
 job = client.video.generate(
     *,
-    prompt: str,                                           # Required
-    model: str,                                            # Required
-    width: int,                                            # Required
-    height: int,                                           # Required
-    steps: int,                                            # Required
-    seed: int,                                             # Required
-    frames: int,                                           # Required
-    fps: int,                                              # Required
+    prompt: str,
+    model: str,
+    width: int | None = None,
+    height: int | None = None,
+    steps: int | None = None,
+    seed: int | None = None,
+    frames: int | None = None,
+    fps: int | None = None,
     negative_prompt: str | None = None,
     guidance: float | None = None,
+    enhance_prompt: bool | None = None,     # needs a prompt-booster guide for the model (v2)
     webhook_url: str | None = None,
+    webhook_secret: str | None = None,
 ) -> Job
 ```
 
-### `generate_price()`
-
-Same parameters as `generate()` except `webhook_url`. Returns `PriceResult`.
-
 ### `animate()`
 
-Animate a still image into a video (image-to-video).
+Image-to-video. Two input modes, pick one:
+
+- **Keyframes**: `first_frame_image` and, on models that support it, `last_frame_image`.
+- **Reference mode**: `ref_images` and/or `ref_videos`, optionally with `ref_audios`. Mutually
+  exclusive with first/last frame; audio alone is not enough.
 
 ```python
 job = client.video.animate(
     *,
-    prompt: str,                                           # Required
-    model: str,                                            # Required
-    first_frame_image: FileInput,                          # Required
-    seed: int,                                             # Required
-    width: int,                                            # Required
-    height: int,                                           # Required
-    frames: int,                                           # Required
-    fps: int,                                              # Required
-    negative_prompt: str | None = None,
+    prompt: str,
+    model: str,
+    first_frame_image: FileInput | None = None,
     last_frame_image: FileInput | None = None,
-    guidance: float | None = None,
-    steps: int | None = None,
-    webhook_url: str | None = None,
+    ref_images: list[FileInput] | None = None,
+    ref_videos: list[FileInput] | None = None,
+    ref_audios: list[FileInput] | None = None,
+    width: int | None = None, height: int | None = None,
+    frames: int | None = None, fps: int | None = None,
+    steps: int | None = None, seed: int | None = None,
+    negative_prompt: str | None = None, guidance: float | None = None,
+    enhance_prompt: bool | None = None,
+    webhook_url: str | None = None, webhook_secret: str | None = None,
 ) -> Job
 ```
 
-### `animate_price()`
+List order binds files to prompt tags: `ref_images[0]` is `<Picture 1>`, `ref_videos[0]` is
+`<Video 1>`, `ref_audios[0]` is `<Audio 1>` (`<Audio 2>` if the reference video has its own audio
+track). Numbering is independent per type. Limits come from the model card (`max_ref_images`,
+`max_ref_videos`, `max_ref_audios`, `max_ref_files`); the API never accepts more than 9 images, 1
+video or 3 audios. Raises `ValueError` for mixed modes, audio-only references or no image source.
 
-```python
-price = client.video.animate_price(
-    *, model: str, width: int, height: int, frames: int, fps: int,
-    steps: int | None = None, guidance: float | None = None,
-) -> PriceResult
-```
+`animate_price()`: `model`, `width`, `height`, `frames`, `fps`, `steps`, `guidance`, plus the
+*counts* `ref_images_count` (0-9), `ref_videos_count` (0-1), `ref_audios_count` (0-3). More than 2
+reference images apply a x2 multiplier, any reference video x3 (highest wins).
 
 ### `generate_from_audio()`
 
-Generate a video synced to an audio track (audio-to-video).
+Audio-to-video: `prompt`, `audio` (MP3/WAV/OGG/FLAC), `model`, optional `first_frame_image`,
+`last_frame_image`, `width`, `height`, `frames`, `fps`, `steps`, `seed`, `negative_prompt`,
+`guidance`, webhook params. `generate_from_audio_price()` takes the sizing parameters.
+
+### `describe()` / `describe_price()` / `get_description()` (v2)
+
+Timestamped index of what happens on screen (reads the picture, not the audio).
 
 ```python
-job = client.video.generate_from_audio(
+job = client.video.describe(
     *,
-    prompt: str,                                           # Required
-    audio: FileInput,                                      # Required — MP3, WAV, OGG, or FLAC
-    model: str,                                            # Required
-    width: int,                                            # Required
-    height: int,                                           # Required
-    seed: int,                                             # Required
-    frames: int,                                           # Required
-    fps: int,                                              # Required
-    negative_prompt: str | None = None,
-    first_frame_image: FileInput | None = None,
-    last_frame_image: FileInput | None = None,
-    guidance: float | None = None,
-    steps: int | None = None,
-    webhook_url: str | None = None,
+    model: str,                                  # e.g. "Marlin_2B"
+    video_url: str | None = None,                # exactly one of video_url / video_file
+    video_file: FileInput | None = None,
+    preset: str | None = None,                   # "fast" | "balanced" | "detail" (models with supports_presets)
+    include_metadata: bool | None = None,        # URL sources only
+    return_result_in_response: bool | None = None,
+    webhook_url: str | None = None, webhook_secret: str | None = None,
 ) -> Job
+
+price = client.video.describe_price(
+    *, model, video_url=None, video_file=None, duration_seconds=None,
+    platform=None,      # youtube | twitter | twitch | kick | tiktok; only with duration_seconds
+    preset=None, include_metadata=None,
+) -> PriceResult
+
+description = client.video.get_description(result: JobResult | str) -> VideoDescription
 ```
 
-### `generate_from_audio_price()`
+`VideoDescription` has `events`, `scenes` and `meta`. `get_description` uses the inline result when
+present, else downloads `result_url` without the API key.
+
+### `upscale()` / `remove_background()`
 
 ```python
-price = client.video.generate_from_audio_price(
-    *, model: str, width: int, height: int, frames: int, fps: int,
-    guidance: float | None = None, steps: int | None = None,
-) -> PriceResult
+client.video.upscale(*, video: FileInput, model: str, webhook_url=None, webhook_secret=None) -> Job
+client.video.remove_background(*, video: FileInput, model: str, webhook_url=None, webhook_secret=None) -> Job
 ```
+
+Price variants take `model` plus `video` **or** `width` + `height`.
 
 ### `replace()`
 
-Replace a character in a video using a reference image.
-
-```python
-job = client.video.replace(
-    *,
-    video: FileInput,                                      # Required — input video
-    ref_image: FileInput,                                  # Required — reference character image
-    model: str,                                            # Required
-    prompt: str | None = None,
-    width: int | None = None,                              # Must be paired with height
-    height: int | None = None,                             # Must be paired with width
-    steps: int | None = None,                              # Default: 4
-    seed: int | None = None,                               # Default: -1
-    webhook_url: str | None = None,
-) -> Job
-```
-
-### `replace_price()`
-
-```python
-price = client.video.replace_price(
-    *, model: str,
-    video: FileInput | None = None,                        # Provide video OR duration
-    duration: float | None = None,                         # Duration in seconds (alternative to video)
-    width: int | None = None,
-    height: int | None = None,
-) -> PriceResult
-```
-
-> Provide either `video` (file) or `duration` (seconds). Raises `ValueError` if neither is given.
-
-### `upscale()`
-
-Upscale a video to higher resolution.
-
-```python
-job = client.video.upscale(*, video: FileInput, model: str, webhook_url: str | None = None) -> Job
-```
-
-### `upscale_price()`
-
-```python
-price = client.video.upscale_price(
-    *, model: str, video: FileInput | None = None, width: int | None = None, height: int | None = None,
-) -> PriceResult
-```
-
-### `remove_background()`
-
-Remove background from a video.
-
-```python
-job = client.video.remove_background(*, video: FileInput, model: str, webhook_url: str | None = None) -> Job
-```
-
-### `remove_background_price()`
-
-```python
-price = client.video.remove_background_price(
-    *, model: str, video: FileInput | None = None, width: int | None = None, height: int | None = None,
-) -> PriceResult
-```
+Kept for compatibility (`video`, `ref_image`, `model`, optional `prompt`, `width`, `height`,
+`steps`, `seed`, webhook params; `replace_price()` takes `video` or `duration`). **No model
+currently serves this route.** Use `animate()` with the character as `ref_images` and the source
+motion as `ref_videos` instead.
 
 ---
 
 ## Resource: transcription
 
-Access via `client.transcription`.
+### `create()`
 
-### `create()` (Recommended)
-
-Unified transcription endpoint — auto-detects source type.
+Unified endpoint for URLs and file uploads.
 
 ```python
 job = client.transcription.create(
     *,
-    include_ts: bool,                                      # Required — include timestamps
-    model: str,                                            # Required
-    source_url: str | None = None,                         # URL (YouTube, Twitch, Twitter, etc.)
-    source_file: FileInput | None = None,                  # Audio or video file upload
-    return_result_in_response: bool | None = None,         # Inline result in status response
+    model: str,
+    source_url: str | None = None,              # exactly one of source_url / source_file
+    source_file: FileInput | None = None,
+    include_ts: bool | None = None,             # implied by ts_level / diarize
+    ts_level: str | None = None,                # "segment" | "word" | "char" (per model card timestamp_levels)
+    diarize: bool | None = None,                # label speakers (models with supports_diarization)
+    lang: str | None = None,                    # ISO code; unset or "auto" = detect
+    include_metadata: bool | None = None,       # URL sources only
+    return_result_in_response: bool | None = None,
     webhook_url: str | None = None,
+    webhook_secret: str | None = None,
 ) -> Job
 ```
 
-> Provide either `source_url` or `source_file`, not both.
+`create_price()` takes the same options plus `platform` and `duration_seconds` (quote without a
+source). Pass the same `ts_level` / `diarize` / `lang` / `include_metadata` as the job, otherwise
+the quote is lower than the charge.
 
-Auto-detection:
-- Twitter Spaces URL → Audio transcription
-- Other URL → Video transcription
-- Audio MIME file → Audio file transcription
-- Video MIME file → Video file transcription
-
-### `create_price()`
+### `get_transcript()`
 
 ```python
-price = client.transcription.create_price(
-    *, include_ts: bool, model: str,
-    source_url: str | None = None,
-    source_file: FileInput | None = None,
-    duration_seconds: float | None = None,                 # Skip source, use known duration
-) -> PriceResult
+transcript = client.transcription.get_transcript(
+    result: JobResult,
+    *,
+    output_format: str | None = None,   # model card info.limits.output_format; "text" forces plain text
+    alt_format: str | None = None,      # pick a rendition from results_alt_formats, e.g. "txt"
+) -> Transcript
 ```
 
-### Legacy Methods
+Uses the inline `result` if present, otherwise downloads `result_url` with a plain GET that sends
+**no** Authorization header.
 
-These target specific endpoints directly. **On `api_version="v2"` (the default)
-they emit a `DeprecationWarning` and route through the unified `create()`
-endpoint** — the surface is preserved for backward compatibility with v1 code.
+**Two result formats**, decided by the model card:
 
-| Method | Description |
-|--------|-------------|
-| `from_video_url(*, video_url, include_ts, model, ...)` | Transcribe from video URL |
-| `from_video_url_price(...)` | Price for video URL transcription |
-| `from_audio_url(*, audio_url, include_ts, model, ...)` | Transcribe from audio URL (Twitter Spaces) |
-| `from_audio_url_price(...)` | Price for audio URL transcription |
-| `from_audio_file(*, audio, include_ts, model, ...)` | Transcribe from audio file upload |
-| `from_audio_file_price(...)` | Price for audio file transcription |
-| `from_video_file(*, video, include_ts, model, ...)` | Transcribe from video file upload |
-| `from_video_file_price(...)` | Price for video file transcription |
+| `info.limits.output_format` | Example model | Result |
+|-----------------------------|---------------|--------|
+| `"json"` | `WhisperLargeV3Ct2` | Always a JSON document: `text`, `language`, `segments` (`start`, `end`, `speaker`, `words`) |
+| `null` | `WhisperLargeV3` | Plain text; timestamps inline (`[0:50 - 1:49] ...`) when requested |
 
-All legacy methods return `Job` and their `_price` variants return `PriceResult`.
+`deapi.parse_transcript(raw, output_format=None)` does the parsing without a client and never
+raises. `deapi.transcript_output_format(model_card)` reads the card field.
+
+```python
+class Transcript(BaseModel):
+    text: str
+    format: Literal["json", "text"]
+    language: str | None
+    ts_level: str | None
+    diarization_available: bool | None
+    segments: list[TranscriptSegment]     # empty for format "text"
+    raw: str                              # untouched result string
+
+class TranscriptSegment(BaseModel):       # start, end, text, speaker, words
+class TranscriptWord(BaseModel):          # word, start, end, speaker, score
+```
+
+### Legacy methods
+
+`from_video_url`, `from_audio_url`, `from_audio_file`, `from_video_file` (and `*_price`) emit a
+`DeprecationWarning` on v2 and route through `create()`.
 
 ---
 
 ## Resource: embeddings
 
-Access via `client.embeddings`.
-
-### `create()`
-
-Generate text embeddings (single or batch).
-
 ```python
 job = client.embeddings.create(
-    *,
-    input: str | list[str],                                # Required — single text or batch
-    model: str,                                            # Required
+    *, input: str | list[str], model: str,
     return_result_in_response: bool | None = None,
-    webhook_url: str | None = None,
+    webhook_url: str | None = None, webhook_secret: str | None = None,
 ) -> Job
 ```
 
-### `create_price()`
+`create_price()`: `input`, `model`, `return_result_in_response`.
+
+---
+
+## Resource: ocr
 
 ```python
-price = client.embeddings.create_price(
-    *, input: str | list[str], model: str,
+job = client.ocr.extract(
+    *, image: FileInput, model: str,
+    language: str | None = None, format: str | None = None,
     return_result_in_response: bool | None = None,
-) -> PriceResult
+    webhook_url: str | None = None, webhook_secret: str | None = None,
+) -> Job
 ```
+
+`extract_price()`: `model`, `image` **or** `width` + `height`, optional `language`.
 
 ---
 
 ## Resource: prompts
 
-Access via `client.prompts`.
+Prompt methods return their result **immediately** (no polling).
 
-> Prompt methods return results **immediately** — no job polling needed.
-
-### `enhance()` (Recommended)
-
-Unified prompt enhancement endpoint. Replaces all v1 individual `enhance_*`
-methods.
+### `enhance()`
 
 ```python
 result = client.prompts.enhance(
     *,
-    prompt: str,                                           # Required — min 3 chars
-    type: str,                                             # Required — see below
-    model_slug: str,                                       # Required — target model
+    prompt: str,                         # min 3 chars
+    type: str,
+    model_slug: str,
     negative_prompt: str | None = None,
-    image: FileInput | None = None,                        # Required for some types
+    image: FileInput | None = None,      # required for images.edits and videos.animations
 ) -> EnhancePromptResult
 ```
 
-**Valid `type` values** (dot-notation matching the API resource):
+`type` is one of `images.generations`, `images.edits`, `images.upscales`,
+`images.background-removals`, `images.ocr`, `videos.generations`, `videos.animations`,
+`videos.upscales`, `videos.background-removals`, `audio.speech`, `audio.music`,
+`audio.transcriptions`, `embeddings`. `enhance_price()` takes the same parameters.
 
-| `type` | Routes to |
-|--------|-----------|
-| `"images.generations"` | text-to-image |
-| `"images.edits"` | image-to-image (`image` required) |
-| `"images.upscales"` | image upscale |
-| `"images.background-removals"` | image rmbg |
-| `"images.ocr"` | OCR |
-| `"videos.generations"` | text-to-video |
-| `"videos.animations"` | image-to-video (`image` required) |
-| `"videos.upscales"` | video upscale |
-| `"videos.background-removals"` | video rmbg |
-| `"audio.speech"` | TTS |
-| `"audio.music"` | text-to-music |
-| `"audio.transcriptions"` | transcription |
-| `"embeddings"` | text-to-embedding |
+### Legacy methods
 
-### `enhance_price()`
-
-Same parameters as `enhance()`. Returns `PriceResult`.
-
-### Legacy Methods
-
-These mirror the v1 surface. **On `api_version="v2"` (the default) they emit
-a `DeprecationWarning` and route through the unified `enhance()` endpoint
-with the appropriate `type`.** All legacy methods now require a `model_slug`
-keyword argument (the unified endpoint requires it).
-
-| Method | Routes to `type` |
-|--------|------------------|
-| `enhance_image(*, prompt, model_slug, negative_prompt=None)` | `images.generations` |
-| `enhance_video(*, prompt, model_slug, negative_prompt=None, image=None)` | `videos.animations` if `image` else `videos.generations` |
-| `enhance_speech(*, prompt, model_slug, lang_code=None)` | `audio.speech` (`lang_code` is ignored) |
-| `enhance_image2image(*, prompt, image, model_slug, negative_prompt=None)` | `images.edits` |
-
-Each has a corresponding `_price` variant.
-
-### `samples()` — Removed in v2
-
-The `prompts.samples()` and `prompts.samples_price()` endpoints were removed
-in v2 with no direct replacement. Calling either on a v2 client raises
-`NotImplementedError`. Use `prompts.enhance(...)` with your own prompt seed.
+`enhance_image`, `enhance_video`, `enhance_speech`, `enhance_image2image` (and `*_price`) emit a
+`DeprecationWarning` on v2, route to `enhance()` and require `model_slug`. `samples()` /
+`samples_price()` were removed in v2 and raise `NotImplementedError`.
 
 ---
 
 ## Resource: models
 
-Access via `client.models`.
-
-### `list()`
-
-List available AI models with their capabilities.
-
 ```python
 response = client.models.list(
     *,
-    per_page: int = 15,                                    # Max 50
+    limit: int | None = None,                  # page size (default 50, server cap 100)
     page: int = 1,
-    inference_types: list[str] | None = None,              # Filter, e.g. ["txt2img", "img2img"]
+    inference_types: list[str] | None = None,  # e.g. ["txt2img", "img2img"]
+    tags: list[str] | None = None,             # e.g. ["new", "beta"]
+    sort: str | None = None,                   # id | name | created_at | updated_at, "-" prefix = descending
+    per_page: int | None = None,               # deprecated alias for limit
 ) -> ModelsResponse
+
+models = client.models.list_all(*, inference_types=None, tags=None, sort=None) -> list[ModelInfo]
+model = client.models.get(slug: str) -> ModelInfo | None
 ```
+
+`ModelInfo` has `name`, `slug`, `inference_types`, `status`, `tags`, `info` (with `limits`,
+`features`, `defaults`), `loras`, `languages`. Helper properties: `limits`, `features`.
+
+---
+
+## Resource: jobs
+
+Resume or inspect a job by id, for example after a `JobTimeoutError`.
+
+```python
+job = client.jobs.get(request_id)       # Job handle, no HTTP request
+result = client.jobs.status(request_id) # poll once -> JobResult
+result = client.jobs.get(request_id).wait()
+```
+
+---
+
+## Resource: account (v2)
+
+API v2 only. **Every call needs an ADMIN key**; an API key gets 403 `insufficient_permissions`
+(`InsufficientPermissionsError`).
+
+| Method | Returns | Endpoint |
+|--------|---------|----------|
+| `account.get()` | `Account` (`balance`, `currency`, `auto_top_up`) | `GET /account` |
+| `account.balance()` | `Balance` | `GET /account/balance` |
+| `account.usage(*, from_=None, to=None, group_by=None)` | `UsageReport` | `GET /account/usage` |
+| `account.payments(*, limit=None, page=None, per_page=None)` | `PaymentsPage` | `GET /account/payments` |
+
+`group_by` is `day`, `hour`, `key`, `type` or `model`. `from_` / `to` accept ISO strings, `date` or
+`datetime`. `limit` defaults to 50 (max 100); `per_page` is an alias.
+
+---
+
+## Resource: keys (v2)
+
+API v2 only. `current()` and `current_usage()` work with any key; everything else needs an ADMIN key.
+
+| Method | Returns |
+|--------|---------|
+| `keys.current()` | `ApiKey` (the calling key) |
+| `keys.current_usage(*, from_=None, to=None, group_by=None)` | `UsageReport` (`group_by`: day, hour, type, model) |
+| `keys.list(*, limit=None, page=None, per_page=None)` | `ApiKeysPage` |
+| `keys.get(key_id)` | `ApiKey` |
+| `keys.usage(key_id, *, from_=None, to=None, group_by=None)` | `UsageReport` |
+| `keys.create(*, name, expires_at=None, limit=None, reset_interval=None, ip_whitelist=None, role=None)` | `ApiKeyCreated` |
+| `keys.update(key_id, *, active=..., expires_at=..., limit=..., reset_interval=..., ip_whitelist=...)` | `ApiKey` |
+| `keys.delete(key_id)` | `None` |
+
+- `create()` makes an API-role key. `reset_interval`: `none` (default), `daily`, `weekly`,
+  `monthly`. `limit` is the spend cap (`None` = unlimited). `ip_whitelist` holds at most 20 entries.
+  The returned `secret` is shown **once**; store it immediately.
+- `update()` sends only the fields you pass; pass `None` to clear `expires_at` / `limit`.
+  `active=False` disables the key (status `revoked`), `active=True` re-enables it.
+- Creating beyond the account's cap raises `ActiveKeyLimitReachedError`.
 
 ---
 
 ## Job Polling
 
-All generation/submission methods return a `Job` (sync) or `AsyncJob` (async).
-
 ### `Job`
 
 ```python
 class Job:
-    request_id: str                       # The unique job ID
+    request_id: str
 
-    def status() -> JobResult             # Poll once (makes an HTTP request)
+    def status() -> JobResult           # poll once
     def wait(
         *,
-        poll_interval: float = 1.0,       # Initial seconds between polls
-        max_wait: float = 300.0,          # Total timeout in seconds
-        backoff_factor: float = 1.5,      # Multiplier for backoff
-        max_interval: float = 10.0,       # Cap on poll interval
-    ) -> JobResult                        # Blocks until done/error
-    def is_done() -> bool                 # Convenience (makes an HTTP request)
-    def is_error() -> bool                # Convenience (makes an HTTP request)
+        poll_interval: float = 1.0,
+        max_wait: float = 300.0,
+        backoff_factor: float = 1.5,
+        max_interval: float = 10.0,
+    ) -> JobResult                      # raises JobTimeoutError (has .request_id) on timeout
+    def is_done() -> bool               # each makes an HTTP request
+    def is_error() -> bool
 ```
 
-> **Note:** `is_done()` and `is_error()` each make an HTTP request. For efficient polling, use `status()` once and check the result.
-
-### `AsyncJob`
-
-Same interface, all methods are `async`.
+A timeout does not cancel the job: resume with `client.jobs.get(request_id).wait()`. `AsyncJob`
+has the same interface with `async` methods.
 
 ---
 
 ## Types & Models
 
-### `JobResult`
-
-Returned by `job.status()` and `job.wait()`.
-
 ```python
 class JobResult(BaseModel):
-    status: JobStatus                     # "pending", "processing", "done", "error"
-    preview: str | None                   # Preview URL (during processing)
-    result_url: str | None                # Final output URL (when done)
-    results_alt_formats: dict[str, str] | None  # {"jpg": "...", "webp": "..."} (image jobs)
-    result: str | None                    # Inline text result (when return_result_in_response=True)
-    progress: float                       # 0.0–100.0
+    status: JobStatus                       # "pending" | "processing" | "done" | "error"
+    preview: str | None
+    result_url: str | None
+    results_alt_formats: dict | None        # {"jpg": "...", "webp": "..."}
+    result: str | None                      # inline result (return_result_in_response=True)
+    progress: float | None
+    error_code: str | None                  # on failure: WORKER_TIMEOUT | WORKER_ERROR | PROCESSING_ERROR
+    error_reason: str | None
+    retryable: bool | None
+    refunded: bool | None
+    failed_at: str | None
+    price: dict | float | None              # actual cost, e.g. {"amount": 0.01, "is_estimated": False}
+    metadata: dict | None
+    prompt_boosted: bool | None
+    prompt_boost: PromptBoost | None
+
+class PriceResult(BaseModel):  price: float
+class Balance(BaseModel):      balance: float
+class ModelsResponse(BaseModel):  data: list[ModelInfo]; links; meta   # meta.current_page, last_page, per_page, total
+class EnhancePromptResult(BaseModel):  prompt: str; negative_prompt: str | None
 ```
 
-### `PriceResult`
+v2 account and key types: `Account`, `AutoTopUp`, `Payment`, `PaymentsPage`, `UsageReport`
+(`totals`, `groups`, shortcuts `cost` / `requests` / `errors`), `ApiKey` (never contains the
+secret), `ApiKeyCreated` (adds `secret`), `ApiKeysPage`; import from `deapi.types.v2`.
 
 ```python
-class PriceResult(BaseModel):
-    price: float                          # Cost in credits
-```
-
-### `Balance`
-
-```python
-class Balance(BaseModel):
-    balance: float                        # Current account balance
-```
-
-### `ModelsResponse`
-
-```python
-class ModelsResponse(BaseModel):
-    data: list[ModelInfo]
-    links: PaginationLinks
-    meta: PaginationMeta
-
-class ModelInfo(BaseModel):
-    name: str
-    inference_types: list[str]
-    specs: dict | None
-
-class PaginationMeta(BaseModel):
-    current_page: int
-    last_page: int
-    per_page: int
-    total: int
-```
-
-### `EnhancePromptResult`
-
-```python
-class EnhancePromptResult(BaseModel):
-    prompt: str
-    negative_prompt: str | None
-```
-
-### `EnhanceSpeechPromptResult`
-
-```python
-class EnhanceSpeechPromptResult(BaseModel):
-    prompt: str
-```
-
-### `SamplePromptResult`
-
-```python
-class SamplePromptResult(BaseModel):
-    type: str
-    prompt: str
-```
-
-### Enums
-
-```python
-class JobStatus(str, Enum):
-    PENDING    = "pending"
-    PROCESSING = "processing"
-    DONE       = "done"
-    ERROR      = "error"
-
-class InferenceType(str, Enum):
-    TXT2IMG          = "txt2img"
-    IMG2IMG          = "img2img"
-    TXT2AUDIO        = "txt2audio"
-    TXT2MUSIC        = "txt2music"
-    # ... and more (see deapi._types for full list)
+class JobStatus(str, Enum):  PENDING, PROCESSING, DONE, ERROR
+class InferenceType(str, Enum):  TXT2IMG, IMG2IMG, TXT2AUDIO, TXT2MUSIC, ...   # see deapi._types
 ```
 
 ---
 
 ## Exceptions
 
-All exceptions inherit from `DeapiError`.
+Import everything from the top-level package: `from deapi import ...`.
 
 ```
-DeapiError                          # Base — attrs: message, status_code, body
-├── AuthenticationError             # 401 — invalid/missing API key
-├── AccountSuspendedError           # 403 — account suspended
-├── NotFoundError                   # 404 — resource not found
-├── ValidationError                 # 422 — invalid parameters
-│   └── InsufficientBalanceError    # 422 with balance error
-├── RateLimitError                  # 429 — rate limited
-├── ServerError                     # 5xx — server error
-├── JobTimeoutError                 # Polling exceeded max_wait
-└── NetworkError                    # Connection/timeout failure
+DeapiError                              # .message  .status_code  .body  .code
+├── AuthenticationError                 # 401  missing_key | invalid_key | key_expired | key_revoked
+├── PaymentRequiredError                # 402
+│   └── KeyLimitExceededError           # 402  key_limit_exceeded - the KEY's spend limit
+├── PermissionDeniedError               # 403  unknown code
+│   ├── IpNotAllowedError               # 403  ip_not_allowed
+│   ├── InsufficientPermissionsError    # 403  insufficient_permissions
+│   └── AccountSuspendedError           # 403  without a code
+├── NotFoundError                       # 404
+├── PayloadTooLargeError                # 413
+├── ValidationError                     # 422  .errors
+│   ├── InsufficientBalanceError        # 422  insufficient_balance - the ACCOUNT is out of credit
+│   └── ActiveKeyLimitReachedError      # 422  active_key_limit_reached
+├── RateLimitError                      # 429  .retry_after  .limit_type
+├── ServerError                         # 5xx
+├── NetworkError                        # connection failure / timeout
+└── JobTimeoutError                     # polling exceeded max_wait; .request_id
 ```
 
-### `DeapiError`
+| Attribute | Meaning |
+|-----------|---------|
+| `code` | Machine-readable code from the API body (`None` if absent) |
+| `status_code` | HTTP status (`None` for `NetworkError` / `JobTimeoutError`) |
+| `message` | Human-readable message |
+| `body` | Parsed response body, if any |
 
-```python
-class DeapiError(Exception):
-    message: str
-    status_code: int | None
-    body: dict | None
-```
-
-### `ValidationError`
+Specific attributes:
 
 ```python
 class ValidationError(DeapiError):
-    errors: dict[str, list[str]]    # {"field": ["error message", ...]}
-```
+    errors: dict[str, list[str]]        # {"field": ["message", ...]}
 
-### `RateLimitError`
+class KeyLimitExceededError(PaymentRequiredError):
+    limit: float | None; used: float | None; remaining: float | None
+    resets_at: str | None               # ISO datetime or None
 
-```python
 class RateLimitError(DeapiError):
-    retry_after: float              # Seconds to wait (from Retry-After header)
-    limit_type: str                 # "minute" or "daily"
+    retry_after: float                  # seconds (Retry-After header)
+    limit_type: str                     # e.g. "minute" or "daily"
+
+class JobTimeoutError(DeapiError):
+    request_id: str | None              # resume: client.jobs.get(request_id).wait()
 ```
 
-### Auto-Retry Behavior
+`KeyLimitExceededError` (402) is the **key's** spend limit; `InsufficientBalanceError` (422) means
+the **account** has no credit. They need different fixes (raise the key's limit vs. top up).
 
-The client automatically retries on:
+Backward compatibility: `except AccountSuspendedError` (it used to catch every 403) and
+`except ValidationError` (still catches `InsufficientBalanceError`) keep working. Catch
+`PermissionDeniedError` to handle every 403.
 
-| Error | Behavior |
-|-------|----------|
-| `RateLimitError` (429) | Waits `Retry-After` seconds, retries up to `max_retries` |
-| `ServerError` (5xx) | Exponential backoff (1s, 2s, 4s, 8s), up to `max_retries` |
-| `NetworkError` | Exponential backoff (1s, 2s, 4s, 8s), up to `max_retries` |
+### Retry policy
+
+Up to `max_retries` attempts with exponential backoff (429 waits for `Retry-After`).
+
+| Request | Retried on |
+|---------|-----------|
+| `GET` (job status, models, account, keys) | 429, 5xx, network errors |
+| Every other method: job-creating `POST` (price quotes are POSTs too), `PATCH`, `DELETE` | 429, or when the connection was never established |
+
+Non-idempotent requests are **never** retried after a timeout or a 5xx, because the server may
+already have accepted (and billed) the job. After a `NetworkError` / `ServerError` on submission,
+check your jobs before resubmitting.
 
 ---
 
@@ -774,35 +685,22 @@ from deapi.webhook import verify_signature, construct_event, InvalidSignatureErr
 
 ### `verify_signature()`
 
-Verify a webhook request's HMAC-SHA256 signature. Raises `InvalidSignatureError` on failure.
+Verify a webhook's HMAC-SHA256 signature; raises `InvalidSignatureError` on failure.
 
 ```python
 verify_signature(
     *,
-    payload: bytes | str,           # Raw request body
+    payload: bytes | str,           # raw request body
     signature: str,                 # X-DeAPI-Signature header
     timestamp: str,                 # X-DeAPI-Timestamp header
-    secret: str,                    # Your webhook signing secret
-    tolerance: int = 300,           # Max age in seconds (0 = disable)
+    secret: str,                    # the webhook_secret you passed when creating the job
+    tolerance: int = 300,           # max age in seconds (0 = disable)
 ) -> None
 ```
 
 ### `construct_event()`
 
-Verify signature and parse the webhook payload into a typed object.
-
-```python
-event = construct_event(
-    *,
-    payload: bytes | str,
-    signature: str,
-    timestamp: str,
-    secret: str,
-    tolerance: int = 300,
-) -> WebhookEvent
-```
-
-### `WebhookEvent`
+Verify and parse into a `WebhookEvent`. Same parameters as `verify_signature()`.
 
 ```python
 class WebhookEvent(BaseModel):
@@ -810,9 +708,7 @@ class WebhookEvent(BaseModel):
     delivery_id: str
     timestamp: str
     data: WebhookEventData
-
-    @property
-    def type(self) -> str           # Alias for event
+    type: str                       # property, alias for event
 
 class WebhookEventData(BaseModel):
     job_request_id: str
@@ -824,19 +720,13 @@ class WebhookEventData(BaseModel):
     processing_time_ms: int | None
 ```
 
-### `InvalidSignatureError`
-
-```python
-class InvalidSignatureError(DeapiError):
-    ...  # Raised by verify_signature / construct_event
-```
-
 ---
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEAPI_API_KEY` | *(required)* | API key for authentication |
+| `DEAPI_API_KEY` | *(required)* | API key, `sk-dp-<id>-<secret>` |
 | `DEAPI_BASE_URL` | `https://api.deapi.ai` | API base URL |
-| `DEAPI_API_VERSION` | `v1` | API version |
+| `DEAPI_API_VERSION` | `v2` | API version (`v1` = legacy) |
+| `DEAPI_FILL_MODEL_DEFAULTS` | on | `0` stops the SDK filling unset parameters from model-card defaults |
