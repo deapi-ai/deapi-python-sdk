@@ -1,6 +1,6 @@
 """Transcription examples.
 
-Demonstrates video URL, audio file, and unified transcription endpoints.
+Demonstrates the unified transcription endpoint and both transcript formats.
 
 Usage:
     export DEAPI_API_KEY="sk-dp-<id>-<secret>"
@@ -11,22 +11,36 @@ from deapi import DeapiClient
 
 client = DeapiClient()
 
-# --- Unified endpoint (recommended) — URL ---
+# --- Two transcript formats ---
+#
+# Models whose card has info.limits.output_format == "json" (e.g. WhisperLargeV3Ct2)
+# always return a JSON document (text, language, segments with start/end/speaker/words).
+# Models with output_format == null (e.g. WhisperLargeV3) return plain text with
+# timestamps written inline. get_transcript() handles both and returns a Transcript.
 
-print("Transcribing video from URL...")
-job = client.transcription.create(
-    source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    include_ts=True,
-    model="WhisperLargeV3",
-    return_result_in_response=True,
-)
-result = job.wait()
-print(f"Status: {result.status}")
-if result.result:
-    # When return_result_in_response=True, text is inline
-    print(f"Transcription (first 500 chars):\n{result.result[:500]}")
-else:
-    print(f"Result URL: {result.result_url}")
+
+def show(model: str, **options) -> None:
+    job = client.transcription.create(
+        source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        model=model,
+        include_ts=True,
+        **options,
+    )
+    result = job.wait()
+    # Uses the inline result if present, otherwise downloads result_url
+    # (without sending your API key to the storage host).
+    transcript = client.transcription.get_transcript(result)
+    print(f"{model}: format={transcript.format}")
+    print(transcript.text[:300])
+    for seg in transcript.segments[:3]:  # empty for format == "text"
+        print(f"  [{seg.start} - {seg.end}] {seg.speaker or ''} {seg.text}")
+
+
+print("JSON-format model (segments, optional diarization):")
+show("WhisperLargeV3Ct2", ts_level="segment", diarize=True, lang="en")
+
+print("\nPlain-text model (timestamps inline in the text):")
+show("WhisperLargeV3")
 
 # --- Unified endpoint — file upload ---
 
