@@ -28,9 +28,12 @@ VIDEO = {"slug": "Ltx", "info": {"defaults": {"width": 512, "height": 512, "fram
                                               "steps": 20, "prompt": "placeholder"}}}
 TTS = {"slug": "Chatterbox", "info": {"defaults": {"lang": "en", "speed": 1, "voice": "default",
                                                    "format": "mp3", "sample_rate": 24000}}}
-MUSIC = {"slug": "Ace", "info": {"defaults": {"format": "mp3"}}}
+MUSIC = {"slug": "Ace", "info": {"defaults": {"format": "mp3"}, "limits": {
+    "min_steps": 8, "max_steps": 8, "min_guidance": 1, "max_guidance": 1}}}
+MUSIC_RANGE = {"slug": "AceRange", "info": {"defaults": {}, "limits": {
+    "min_steps": 4, "max_steps": 8, "min_guidance": 1, "max_guidance": 1}}}
 PAGE1 = [FLUX, VIDEO]
-PAGE2 = [TTS, MUSIC]
+PAGE2 = [TTS, MUSIC, MUSIC_RANGE]
 
 
 def _models(pages: tuple[list[dict[str, Any]], ...] = (PAGE1, PAGE2)) -> respx.Route:
@@ -164,8 +167,18 @@ class TestVideoAudio:
             c.audio.compose_price(model="Ace", duration=30)
         body = _json(gen)
         assert body["format"] == "mp3" and body["seed"] == -1
-        assert "inference_steps" not in body and "lyrics" in body
-        assert "inference_steps" not in _json(price)  # card has no default: left for the API to report
+        assert body["inference_steps"] == 8 and body["guidance_scale"] == 1  # pinned by limits
+        assert "lyrics" in body
+        assert _json(price)["inference_steps"] == 8
+
+    @respx.mock
+    def test_music_unpinned_limits_not_derived(self) -> None:
+        _models()
+        gen = _post("audio/music")
+        with _client() as c:
+            c.audio.compose(caption="c", model="AceRange", duration=30)
+        body = _json(gen)
+        assert "inference_steps" not in body and body["guidance_scale"] == 1
 
 
 class TestFallbacksAndOptOut:
@@ -175,7 +188,7 @@ class TestFallbacksAndOptOut:
         gen = _post("images/generations")
         with _client() as c:
             c.images.generate(prompt="cat", model="Nope")
-        assert _json(gen) == {"prompt": "cat", "model": "Nope"}
+        assert _json(gen) == {"prompt": "cat", "model": "Nope", "seed": -1}
 
     @pytest.mark.parametrize("status", [401, 403, 500])
     @respx.mock
@@ -185,7 +198,7 @@ class TestFallbacksAndOptOut:
         with _client(max_retries=0) as c:
             c.images.generate(prompt="cat", model="Flux1schnell")
             c.images.generate(prompt="dog", model="Flux1schnell")
-        assert _json(gen) == {"prompt": "dog", "model": "Flux1schnell"}
+        assert _json(gen) == {"prompt": "dog", "model": "Flux1schnell", "seed": -1}
         assert models.call_count == 1
 
     @respx.mock
@@ -194,7 +207,7 @@ class TestFallbacksAndOptOut:
         gen = _post("images/generations")
         with _client() as c:
             c.images.generate(prompt="cat", model="Flux1schnell")
-        assert _json(gen) == {"prompt": "cat", "model": "Flux1schnell"}
+        assert _json(gen) == {"prompt": "cat", "model": "Flux1schnell", "seed": -1}
 
     @respx.mock
     def test_flag_disables(self) -> None:
@@ -248,7 +261,7 @@ class TestAsyncParity:
         gen = _post("images/generations")
         async with AsyncDeapiClient(api_key=KEY, base_url=BASE, api_version="v2", max_retries=0) as c:
             await c.images.generate(prompt="cat", model="Flux1schnell")
-        assert _json(gen) == {"prompt": "cat", "model": "Flux1schnell"}
+        assert _json(gen) == {"prompt": "cat", "model": "Flux1schnell", "seed": -1}
 
     @respx.mock
     async def test_async_opt_out(self) -> None:

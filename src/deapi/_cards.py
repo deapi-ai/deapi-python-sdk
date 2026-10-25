@@ -4,11 +4,14 @@ The API still requires several card-driven parameters (width, height, seed, step
 so when the caller leaves one unset it is taken from the model's card. The whole
 catalogue is fetched once per HTTP client (lazily, on the first call that needs it) and
 cached. Defaulting never raises: if the catalogue cannot be fetched, or the model is not
-in it, nothing is filled and the API answers with its normal validation error.
+in it, no card value is filled and the API answers with its normal validation error.
+
+When the card has no default for a key but its ``limits`` pin it (``min_X == max_X``), that
+value is used; nothing is derived when min and max differ.
 
 Rules (same as the deAPI MCP server): a value the caller set always wins; a key the card
 does not default is left out; free-text fields (prompt, negative_prompt, ...) are never
-filled; ``seed`` falls back to ``-1`` (random) where the API requires it.
+filled; ``seed`` falls back to ``-1`` (random) where the API requires it, even without a card.
 """
 
 from __future__ import annotations
@@ -25,6 +28,9 @@ VIDEO_KEYS = ("width", "height", "frames", "fps")
 TTS_KEYS = ("lang", "speed", "format", "sample_rate")
 MUSIC_KEYS = ("format", "inference_steps", "guidance_scale")
 MUSIC_PRICE_KEYS = ("inference_steps",)
+
+# Request field -> card limit name (``min_X``/``max_X``) where they differ.
+_LIMIT_NAMES = {"inference_steps": "steps", "guidance_scale": "guidance"}
 
 _FALSE_VALUES = ("0", "false", "no", "off")
 
@@ -57,12 +63,26 @@ class _CardCache:
         self.failed = False
         self.lock: Any = None  # asyncio.Lock, created lazily inside a running loop
 
-    def defaults(self, model: Any) -> dict[str, Any] | None:
-        """Card defaults for ``model``, or ``None`` when the model/catalogue is unknown."""
+    def values(self, model: Any, keys: Iterable[str]) -> dict[str, Any] | None:
+        """Card values for ``keys``: ``info.defaults``, else a value pinned by ``info.limits``.
+
+        A limit pins a value when ``min_X == max_X`` (e.g. fixed steps or guidance). Returns
+        ``None`` when the model/catalogue is unknown.
+        """
         if self.failed or self.cards is None or model not in self.cards:
             return None
-        defaults = self.cards[model].get("defaults")
-        return defaults if isinstance(defaults, dict) else {}
+        info = self.cards[model]
+        defaults = info.get("defaults")
+        limits = info.get("limits")
+        values = dict(defaults) if isinstance(defaults, dict) else {}
+        if isinstance(limits, dict):
+            for key in keys:
+                if values.get(key) is None:
+                    name = _LIMIT_NAMES.get(key, key)
+                    lo, hi = limits.get(f"min_{name}"), limits.get(f"max_{name}")
+                    if lo is not None and lo == hi:
+                        values[key] = lo
+        return values
 
 
 def _cache(client: Any) -> _CardCache:
@@ -90,12 +110,12 @@ def _last_page(resp: Any) -> int:
 def _apply(
     cache: _CardCache, payload: dict[str, Any], keys: Iterable[str], seed: bool, form: bool
 ) -> dict[str, Any]:
-    defaults = cache.defaults(payload.get("model"))
-    if defaults is None:
-        return payload
+    keys = tuple(keys)
     unset = {k for k in (*keys, "seed") if payload.get(k) is None}
-    fill_from_card(payload, defaults, keys)
-    if seed and payload.get("seed") is None:
+    values = cache.values(payload.get("model"), keys)
+    if values is not None:
+        fill_from_card(payload, values, keys)
+    if seed and payload.get("seed") is None:  # not card-derived: needs no catalogue
         payload["seed"] = _RANDOM_SEED
     if form:  # multipart fields are strings
         for key in unset:
