@@ -3,9 +3,8 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
-import httpx
-
 from deapi._client import AsyncHTTPClient, SyncHTTPClient
+from deapi._download import adownload_text, download_text
 from deapi._files import FileInput, normalize_file
 from deapi._payload import drop_none, form_bool, webhook_fields
 from deapi._polling import AsyncJob, Job
@@ -104,6 +103,8 @@ def _build_price(
         lang=lang, include_metadata=include_metadata,
     )
     fields.update(drop_none({"platform": platform, "duration_seconds": duration_seconds}))
+    if source_url is not None and source_file is not None:
+        raise ValueError("Provide either 'source_url' or 'source_file', not both.")
     if source_file is not None:
         return {"data": _form(fields), "files": [("source_file", normalize_file(source_file, "source_file"))]}
     if source_url is not None:
@@ -119,7 +120,7 @@ def _pick_result_source(result: JobResult, alt_format: str | None) -> tuple[str 
             available = ", ".join(sorted(alts)) or "none"
             raise ValueError(f"No '{alt_format}' rendition on this job (available: {available}).")
         return None, alts[alt_format]
-    if result.result is not None:
+    if result.result:
         return result.result, None
     if result.result_url:
         return None, result.result_url
@@ -243,9 +244,7 @@ class Transcription:
         """
         inline, url = _pick_result_source(result, alt_format)
         if inline is None:
-            resp = httpx.get(url, timeout=self._client._config.timeout, follow_redirects=True)  # type: ignore[arg-type]
-            self._client._raise_for_status(resp)
-            inline = resp.text
+            inline = download_text(url, self._client._config.timeout)  # type: ignore[arg-type]
         return parse_transcript(inline, output_format=_format_hint(output_format, alt_format))
 
     # --- Legacy methods (deprecated, route to create) ---
@@ -504,10 +503,7 @@ class AsyncTranscription:
         """
         inline, url = _pick_result_source(result, alt_format)
         if inline is None:
-            async with httpx.AsyncClient(timeout=self._client._config.timeout, follow_redirects=True) as http:
-                resp = await http.get(url)  # type: ignore[arg-type]
-            self._client._raise_for_status(resp)
-            inline = resp.text
+            inline = await adownload_text(url, self._client._config.timeout)  # type: ignore[arg-type]
         return parse_transcript(inline, output_format=_format_hint(output_format, alt_format))
 
     async def from_video_url(

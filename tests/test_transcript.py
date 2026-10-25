@@ -257,11 +257,52 @@ class TestGetTranscript:
 
     @respx.mock
     def test_download_error_raises(self, client_v2: DeapiClient) -> None:
-        from deapi import NotFoundError
+        from deapi import DeapiError
 
         respx.get(STORAGE).mock(return_value=httpx.Response(404, text="gone"))
-        with pytest.raises(NotFoundError):
+        with pytest.raises(DeapiError, match="HTTP 404") as ei:
             client_v2.transcription.get_transcript(done(result_url=STORAGE))
+        assert ei.value.status_code == 404
+
+    @respx.mock
+    @pytest.mark.parametrize("status", [401, 403])
+    def test_storage_auth_error_is_not_an_account_error(self, client_v2: DeapiClient, status: int) -> None:
+        from deapi import AuthenticationError, DeapiError, PermissionDeniedError
+
+        respx.get(STORAGE).mock(return_value=httpx.Response(status, text="denied"))
+        with pytest.raises(DeapiError) as ei:
+            client_v2.transcription.get_transcript(done(result_url=STORAGE))
+        assert not isinstance(ei.value, (AuthenticationError, PermissionDeniedError))
+        assert ei.value.status_code == status
+
+    @respx.mock
+    def test_transport_error_is_network_error(self, client_v2: DeapiClient) -> None:
+        from deapi import NetworkError
+
+        respx.get(STORAGE).mock(side_effect=httpx.ConnectError("boom"))
+        with pytest.raises(NetworkError):
+            client_v2.transcription.get_transcript(done(result_url=STORAGE))
+
+    @respx.mock
+    async def test_async_download_error(self, async_client_v2: AsyncDeapiClient) -> None:
+        from deapi import DeapiError, NetworkError
+
+        respx.get(STORAGE).mock(return_value=httpx.Response(403))
+        with pytest.raises(DeapiError, match="HTTP 403") as ei:
+            await async_client_v2.transcription.get_transcript(done(result_url=STORAGE))
+        assert type(ei.value) is DeapiError
+        respx.get(STORAGE).mock(side_effect=httpx.ConnectError("boom"))
+        with pytest.raises(NetworkError):
+            await async_client_v2.transcription.get_transcript(done(result_url=STORAGE))
+
+    def test_empty_inline_result_falls_back_to_url(self) -> None:
+        from deapi.resources.v2.transcription import _pick_result_source
+
+        assert _pick_result_source(done(result="", result_url=STORAGE), None) == (None, STORAGE)
+
+    def test_create_price_rejects_both_sources(self, client_v2: DeapiClient) -> None:
+        with pytest.raises(ValueError, match="not both"):
+            client_v2.transcription.create_price(model="m", source_url="https://x.example/a.mp3", source_file=b"x")
 
     @respx.mock
     def test_alt_format_choice(self, client_v2: DeapiClient) -> None:

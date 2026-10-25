@@ -302,6 +302,37 @@ class TestDescriptionResult:
         with pytest.raises(DeapiError):
             client_v2.video.get_description("https://storage.example/gone.json")
 
+    @respx.mock
+    def test_download_errors_and_bad_json(self, client_v2: DeapiClient) -> None:
+        from deapi._exceptions import DeapiError, NetworkError
+
+        url = "https://storage.example/x.json"
+        respx.get(url).mock(return_value=httpx.Response(403))
+        with pytest.raises(DeapiError, match="HTTP 403") as ei:
+            client_v2.video.get_description(url)
+        assert type(ei.value) is DeapiError and ei.value.status_code == 403
+        respx.get(url).mock(return_value=httpx.Response(200, text="<html>nope"))
+        with pytest.raises(DeapiError, match="invalid JSON"):
+            client_v2.video.get_description(url)
+        respx.get(url).mock(side_effect=httpx.ConnectError("boom"))
+        with pytest.raises(NetworkError):
+            client_v2.video.get_description(url)
+
+    @respx.mock
+    async def test_async_download_errors_and_bad_json(self, async_client_v2: AsyncDeapiClient) -> None:
+        from deapi._exceptions import DeapiError, NetworkError
+
+        url = "https://storage.example/x.json"
+        respx.get(url).mock(return_value=httpx.Response(500))
+        with pytest.raises(DeapiError, match="HTTP 500"):
+            await async_client_v2.video.get_description(url)
+        respx.get(url).mock(return_value=httpx.Response(200, text="nope"))
+        with pytest.raises(DeapiError, match="invalid JSON"):
+            await async_client_v2.video.get_description(url)
+        respx.get(url).mock(side_effect=httpx.ConnectError("boom"))
+        with pytest.raises(NetworkError):
+            await async_client_v2.video.get_description(url)
+
     def test_nothing_to_read(self, client_v2: DeapiClient) -> None:
         with pytest.raises(ValueError):
             client_v2.video.get_description(JobResult(status="processing"))

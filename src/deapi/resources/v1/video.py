@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import json
 from typing import Any
-
-import httpx
 
 from deapi._cards import VIDEO_KEYS, afill_payload, fill_payload
 from deapi._client import AsyncHTTPClient, SyncHTTPClient
-from deapi._exceptions import NetworkError
+from deapi._download import adownload_text, download_text
+from deapi._exceptions import DeapiError
 from deapi._files import FileInput, normalize_file
 from deapi._payload import drop_none, form_bool, webhook_fields
 from deapi._polling import AsyncJob, Job
@@ -487,9 +487,7 @@ class Video:
         inline, result_url = _description_source(result)
         if inline is not None:
             return parse_video_description(inline)
-        response = httpx.get(result_url, follow_redirects=True, timeout=self._client._config.timeout)
-        _raise_for_download(response)
-        return parse_video_description(response.json())
+        return parse_video_description(_load_json(download_text(result_url, self._client._config.timeout)))
 
 
 class AsyncVideo:
@@ -963,10 +961,8 @@ class AsyncVideo:
         inline, result_url = _description_source(result)
         if inline is not None:
             return parse_video_description(inline)
-        async with httpx.AsyncClient(follow_redirects=True, timeout=self._client._config.timeout) as http:
-            response = await http.get(result_url)
-        _raise_for_download(response)
-        return parse_video_description(response.json())
+        text = await adownload_text(result_url, self._client._config.timeout)
+        return parse_video_description(_load_json(text))
 
 
 def _as_list(items: Any) -> list[Any]:
@@ -1220,6 +1216,8 @@ def _description_source(result: JobResult | str) -> tuple[Any, str]:
     return None, text
 
 
-def _raise_for_download(response: httpx.Response) -> None:
-    if response.status_code >= 400:
-        raise NetworkError(f"Could not download video description (HTTP {response.status_code})")
+def _load_json(text: str) -> Any:
+    try:
+        return json.loads(text)
+    except ValueError as exc:
+        raise DeapiError("Could not parse the video description result (invalid JSON)") from exc
