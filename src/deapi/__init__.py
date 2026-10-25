@@ -25,10 +25,10 @@ from deapi._exceptions import (
     ServerError,
     ValidationError,
 )
-from deapi._polling import AsyncJob, Job
+from deapi._polling import AsyncJob, AsyncJobs, Job, Jobs
 from deapi._types import InferenceType, JobStatus
 from deapi._version import __version__
-from deapi.types.common import Balance, JobResult, JobSubmission, PriceResult
+from deapi.types.common import Balance, JobResult, JobSubmission, ModelInfo, ModelsResponse, PriceResult
 from deapi.webhook import InvalidSignatureError, WebhookEvent, WebhookEventData, construct_event, verify_signature
 
 
@@ -42,6 +42,7 @@ def _attach_v1_resources_sync(client: DeapiClient) -> None:
     client.embeddings = Embeddings(client._http_client)
     client.prompts = Prompts(client._http_client)
     client.ocr = OCR(client._http_client)
+    client.jobs = Jobs(client._http_client)
 
 
 def _attach_v1_resources_async(client: AsyncDeapiClient) -> None:
@@ -57,10 +58,13 @@ def _attach_v1_resources_async(client: AsyncDeapiClient) -> None:
     client.embeddings = AsyncEmbeddings(client._http_client)
     client.prompts = AsyncPrompts(client._http_client)
     client.ocr = AsyncOCR(client._http_client)
+    client.jobs = AsyncJobs(client._http_client)
 
 
 def _attach_v2_resources_sync(client: DeapiClient) -> None:
-    from deapi.resources.v2 import Audio, Embeddings, Images, Models, OCR, Prompts, Transcription, Video
+    from deapi.resources.v2 import (
+        AccountResource, Audio, Embeddings, Images, KeysResource, Models, OCR, Prompts, Transcription, Video,
+    )
     client.images = Images(client._http_client)
     client.models = Models(client._http_client)
     client.audio = Audio(client._http_client)
@@ -69,11 +73,14 @@ def _attach_v2_resources_sync(client: DeapiClient) -> None:
     client.embeddings = Embeddings(client._http_client)
     client.prompts = Prompts(client._http_client)
     client.ocr = OCR(client._http_client)
+    client.jobs = Jobs(client._http_client)
+    client.account = AccountResource(client._http_client)
+    client.keys = KeysResource(client._http_client)
 
 
 def _attach_v2_resources_async(client: AsyncDeapiClient) -> None:
     from deapi.resources.v2 import (
-        AsyncAudio, AsyncEmbeddings, AsyncImages, AsyncModels,
+        AsyncAccountResource, AsyncKeysResource, AsyncAudio, AsyncEmbeddings, AsyncImages, AsyncModels,
         AsyncOCR, AsyncPrompts, AsyncTranscription, AsyncVideo,
     )
     client.images = AsyncImages(client._http_client)
@@ -84,6 +91,9 @@ def _attach_v2_resources_async(client: AsyncDeapiClient) -> None:
     client.embeddings = AsyncEmbeddings(client._http_client)
     client.prompts = AsyncPrompts(client._http_client)
     client.ocr = AsyncOCR(client._http_client)
+    client.jobs = AsyncJobs(client._http_client)
+    client.account = AsyncAccountResource(client._http_client)
+    client.keys = AsyncKeysResource(client._http_client)
 
 
 _RESOURCE_LOADERS: dict[str, dict[str, Any]] = {
@@ -122,6 +132,9 @@ class DeapiClient:
     embeddings: Any
     prompts: Any
     ocr: Any
+    jobs: Any
+    account: Any  # API v2 only
+    keys: Any  # API v2 only
 
     def __init__(
         self,
@@ -185,6 +198,9 @@ class AsyncDeapiClient:
     embeddings: Any
     prompts: Any
     ocr: Any
+    jobs: Any
+    account: Any  # API v2 only
+    keys: Any  # API v2 only
 
     def __init__(
         self,
@@ -236,12 +252,16 @@ __all__ = [
     # Jobs
     "Job",
     "AsyncJob",
+    "AsyncJobs",
+    "Jobs",
     # Types
     "Balance",
     "InferenceType",
     "JobResult",
     "JobStatus",
     "JobSubmission",
+    "ModelInfo",
+    "ModelsResponse",
     "PriceResult",
     # Exceptions
     "AccountSuspendedError",

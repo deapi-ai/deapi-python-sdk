@@ -11,10 +11,16 @@ from deapi.resources.v1.images import AsyncImages, Images
 from deapi.resources.v1.models import AsyncModels, Models
 from deapi.resources.v1.ocr import AsyncOCR, OCR
 from deapi.resources.v1.video import AsyncVideo, Video
+from deapi.resources.v2.account import AccountResource, AsyncAccountResource
+from deapi.resources.v2.keys import AsyncKeysResource, KeysResource
 from deapi.resources.v2.prompts import AsyncPrompts, Prompts
 from deapi.resources.v2.transcription import AsyncTranscription, Transcription
 
 __all__ = [
+    "AccountResource",
+    "AsyncAccountResource",
+    "AsyncKeysResource",
+    "KeysResource",
     "AsyncAudio",
     "AsyncEmbeddings",
     "AsyncImages",
