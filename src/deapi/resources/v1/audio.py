@@ -4,12 +4,13 @@ from typing import Any
 
 from deapi._client import AsyncHTTPClient, SyncHTTPClient
 from deapi._files import FileInput, normalize_file
+from deapi._payload import drop_none, webhook_fields
 from deapi._polling import AsyncJob, Job
 from deapi.types.common import PriceResult
 
 
 class Audio:
-    """Sync audio resource — TTS and music generation (v1)."""
+    """Sync audio resource -- TTS and music generation."""
 
     def __init__(self, client: SyncHTTPClient) -> None:
         self._client = client
@@ -19,23 +20,29 @@ class Audio:
         *,
         text: str,
         model: str,
-        lang: str,
-        format: str,
-        speed: float,
-        sample_rate: float,
+        lang: str | None = None,
+        format: str | None = None,
+        speed: float | None = None,
+        sample_rate: float | None = None,
         mode: str | None = None,
         voice: str | None = None,
         ref_audio: FileInput | None = None,
         ref_text: str | None = None,
         instruct: str | None = None,
         webhook_url: str | None = None,
+        webhook_secret: str | None = None,
     ) -> Job:
-        """Submit a text-to-audio (TTS) job."""
+        """Submit a text-to-audio (TTS) job.
+
+        ``lang``, ``format``, ``speed`` and ``sample_rate`` are only sent when set (the model
+        card's defaults apply otherwise). ``ref_audio`` makes the request multipart.
+        """
         url = self._client._resolve_endpoint("txt2audio")
         data, files = _build_tts_multipart(
             text=text, model=model, lang=lang, format=format, speed=speed,
             sample_rate=sample_rate, mode=mode, voice=voice, ref_audio=ref_audio,
-            ref_text=ref_text, instruct=instruct, webhook_url=webhook_url,
+            ref_text=ref_text, instruct=instruct,
+            webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
         if files:
             resp = self._client.post(url, data=data, files=files)
@@ -49,32 +56,23 @@ class Audio:
         self,
         *,
         model: str,
-        lang: str,
-        format: str,
-        speed: float,
-        sample_rate: float,
+        lang: str | None = None,
+        format: str | None = None,
+        speed: float | None = None,
+        sample_rate: float | None = None,
         text: str | None = None,
         count_text: int | None = None,
         mode: str | None = None,
         voice: str | None = None,
         instruct: str | None = None,
     ) -> PriceResult:
-        """Calculate price for TTS."""
+        """Calculate price for TTS (pass ``text`` or ``count_text``)."""
         url = self._client._resolve_endpoint("txt2audio_price")
-        payload: dict[str, Any] = {
-            "model": model, "lang": lang, "format": format,
-            "speed": speed, "sample_rate": sample_rate,
-        }
-        if text is not None:
-            payload["text"] = text
-        if count_text is not None:
-            payload["count_text"] = count_text
-        if mode is not None:
-            payload["mode"] = mode
-        if voice is not None:
-            payload["voice"] = voice
-        if instruct is not None:
-            payload["instruct"] = instruct
+        payload = drop_none({
+            "model": model, "lang": lang, "format": format, "speed": speed,
+            "sample_rate": sample_rate, "text": text, "count_text": count_text,
+            "mode": mode, "voice": voice, "instruct": instruct,
+        })
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -84,27 +82,39 @@ class Audio:
         caption: str,
         model: str,
         duration: float,
-        inference_steps: int,
-        guidance_scale: float,
-        seed: int,
-        format: str,
+        inference_steps: int | None = None,
+        guidance_scale: float | None = None,
+        seed: int | None = None,
+        format: str | None = None,
         lyrics: str | None = None,
         bpm: int | None = None,
         keyscale: str | None = None,
         timesignature: int | None = None,
         vocal_language: str | None = None,
+        reference_audio: FileInput | None = None,
         webhook_url: str | None = None,
+        webhook_secret: str | None = None,
     ) -> Job:
-        """Submit a text-to-music generation job."""
+        """Submit a text-to-music generation job.
+
+        ``reference_audio`` (style reference, length within the model's window) turns the
+        request into multipart/form-data; without it the request is JSON. The API requires
+        non-empty ``lyrics`` (use ``"[Instrumental]"`` for instrumentals) and an integer
+        ``timesignature`` (2, 3, 4 or 6).
+        """
         url = self._client._resolve_endpoint("txt2music")
-        payload = _build_music_payload(
+        payload, files = _build_music_request(
             caption=caption, model=model, duration=duration,
             inference_steps=inference_steps, guidance_scale=guidance_scale,
             seed=seed, format=format, lyrics=lyrics, bpm=bpm,
             keyscale=keyscale, timesignature=timesignature,
-            vocal_language=vocal_language, webhook_url=webhook_url,
+            vocal_language=vocal_language, reference_audio=reference_audio,
+            webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
-        resp = self._client.post(url, json=payload)
+        if files:
+            resp = self._client.post(url, data=payload, files=files)
+        else:
+            resp = self._client.post(url, json=payload)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
         return Job(request_id, self._client, status_url)
@@ -114,19 +124,19 @@ class Audio:
         *,
         model: str,
         duration: float,
-        inference_steps: int,
+        inference_steps: int | None = None,
     ) -> PriceResult:
         """Calculate price for music generation."""
         url = self._client._resolve_endpoint("txt2music_price")
-        payload: dict[str, Any] = {
+        payload = drop_none({
             "model": model, "duration": duration, "inference_steps": inference_steps,
-        }
+        })
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
 
 class AsyncAudio:
-    """Async audio resource — TTS and music generation (v1)."""
+    """Async audio resource -- TTS and music generation."""
 
     def __init__(self, client: AsyncHTTPClient) -> None:
         self._client = client
@@ -136,23 +146,29 @@ class AsyncAudio:
         *,
         text: str,
         model: str,
-        lang: str,
-        format: str,
-        speed: float,
-        sample_rate: float,
+        lang: str | None = None,
+        format: str | None = None,
+        speed: float | None = None,
+        sample_rate: float | None = None,
         mode: str | None = None,
         voice: str | None = None,
         ref_audio: FileInput | None = None,
         ref_text: str | None = None,
         instruct: str | None = None,
         webhook_url: str | None = None,
+        webhook_secret: str | None = None,
     ) -> AsyncJob:
-        """Submit a text-to-audio (TTS) job."""
+        """Submit a text-to-audio (TTS) job.
+
+        ``lang``, ``format``, ``speed`` and ``sample_rate`` are only sent when set (the model
+        card's defaults apply otherwise). ``ref_audio`` makes the request multipart.
+        """
         url = self._client._resolve_endpoint("txt2audio")
         data, files = _build_tts_multipart(
             text=text, model=model, lang=lang, format=format, speed=speed,
             sample_rate=sample_rate, mode=mode, voice=voice, ref_audio=ref_audio,
-            ref_text=ref_text, instruct=instruct, webhook_url=webhook_url,
+            ref_text=ref_text, instruct=instruct,
+            webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
         if files:
             resp = await self._client.post(url, data=data, files=files)
@@ -166,32 +182,23 @@ class AsyncAudio:
         self,
         *,
         model: str,
-        lang: str,
-        format: str,
-        speed: float,
-        sample_rate: float,
+        lang: str | None = None,
+        format: str | None = None,
+        speed: float | None = None,
+        sample_rate: float | None = None,
         text: str | None = None,
         count_text: int | None = None,
         mode: str | None = None,
         voice: str | None = None,
         instruct: str | None = None,
     ) -> PriceResult:
-        """Calculate price for TTS."""
+        """Calculate price for TTS (pass ``text`` or ``count_text``)."""
         url = self._client._resolve_endpoint("txt2audio_price")
-        payload: dict[str, Any] = {
-            "model": model, "lang": lang, "format": format,
-            "speed": speed, "sample_rate": sample_rate,
-        }
-        if text is not None:
-            payload["text"] = text
-        if count_text is not None:
-            payload["count_text"] = count_text
-        if mode is not None:
-            payload["mode"] = mode
-        if voice is not None:
-            payload["voice"] = voice
-        if instruct is not None:
-            payload["instruct"] = instruct
+        payload = drop_none({
+            "model": model, "lang": lang, "format": format, "speed": speed,
+            "sample_rate": sample_rate, "text": text, "count_text": count_text,
+            "mode": mode, "voice": voice, "instruct": instruct,
+        })
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -201,27 +208,39 @@ class AsyncAudio:
         caption: str,
         model: str,
         duration: float,
-        inference_steps: int,
-        guidance_scale: float,
-        seed: int,
-        format: str,
+        inference_steps: int | None = None,
+        guidance_scale: float | None = None,
+        seed: int | None = None,
+        format: str | None = None,
         lyrics: str | None = None,
         bpm: int | None = None,
         keyscale: str | None = None,
         timesignature: int | None = None,
         vocal_language: str | None = None,
+        reference_audio: FileInput | None = None,
         webhook_url: str | None = None,
+        webhook_secret: str | None = None,
     ) -> AsyncJob:
-        """Submit a text-to-music generation job."""
+        """Submit a text-to-music generation job.
+
+        ``reference_audio`` (style reference, length within the model's window) turns the
+        request into multipart/form-data; without it the request is JSON. The API requires
+        non-empty ``lyrics`` (use ``"[Instrumental]"`` for instrumentals) and an integer
+        ``timesignature`` (2, 3, 4 or 6).
+        """
         url = self._client._resolve_endpoint("txt2music")
-        payload = _build_music_payload(
+        payload, files = _build_music_request(
             caption=caption, model=model, duration=duration,
             inference_steps=inference_steps, guidance_scale=guidance_scale,
             seed=seed, format=format, lyrics=lyrics, bpm=bpm,
             keyscale=keyscale, timesignature=timesignature,
-            vocal_language=vocal_language, webhook_url=webhook_url,
+            vocal_language=vocal_language, reference_audio=reference_audio,
+            webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
-        resp = await self._client.post(url, json=payload)
+        if files:
+            resp = await self._client.post(url, data=payload, files=files)
+        else:
+            resp = await self._client.post(url, json=payload)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
         return AsyncJob(request_id, self._client, status_url)
@@ -231,13 +250,13 @@ class AsyncAudio:
         *,
         model: str,
         duration: float,
-        inference_steps: int,
+        inference_steps: int | None = None,
     ) -> PriceResult:
         """Calculate price for music generation."""
         url = self._client._resolve_endpoint("txt2music_price")
-        payload: dict[str, Any] = {
+        payload = drop_none({
             "model": model, "duration": duration, "inference_steps": inference_steps,
-        }
+        })
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -248,36 +267,30 @@ def _build_tts_multipart(
     *,
     text: str,
     model: str,
-    lang: str,
-    format: str,
-    speed: float,
-    sample_rate: float,
+    lang: str | None = None,
+    format: str | None = None,
+    speed: float | None = None,
+    sample_rate: float | None = None,
     mode: str | None = None,
     voice: str | None = None,
     ref_audio: FileInput | None = None,
     ref_text: str | None = None,
     instruct: str | None = None,
     webhook_url: str | None = None,
+    webhook_secret: str | None = None,
 ) -> tuple[dict[str, Any], list[tuple[str, tuple[str, bytes, str]]]]:
     """Build form data for TTS. Returns (data_dict, file_tuples).
 
     When ref_audio is provided, the request must be multipart/form-data.
     Otherwise, the caller should send as JSON.
     """
-    data: dict[str, Any] = {
-        "text": text, "model": model, "lang": lang,
-        "format": format, "speed": speed, "sample_rate": sample_rate,
-    }
-    if mode is not None:
-        data["mode"] = mode
-    if voice is not None:
-        data["voice"] = voice
-    if ref_text is not None:
-        data["ref_text"] = ref_text
-    if instruct is not None:
-        data["instruct"] = instruct
-    if webhook_url is not None:
-        data["webhook_url"] = webhook_url
+    webhook = webhook_fields(webhook_url, webhook_secret)
+    data = drop_none({
+        "text": text, "model": model, "lang": lang, "format": format,
+        "speed": speed, "sample_rate": sample_rate, "mode": mode, "voice": voice,
+        "ref_text": ref_text, "instruct": instruct,
+    })
+    data.update(webhook)
 
     file_tuples: list[tuple[str, tuple[str, bytes, str]]] = []
     if ref_audio is not None:
@@ -287,37 +300,36 @@ def _build_tts_multipart(
     return data, file_tuples
 
 
-def _build_music_payload(
+def _build_music_request(
     *,
     caption: str,
     model: str,
     duration: float,
-    inference_steps: int,
-    guidance_scale: float,
-    seed: int,
-    format: str,
+    inference_steps: int | None = None,
+    guidance_scale: float | None = None,
+    seed: int | None = None,
+    format: str | None = None,
     lyrics: str | None = None,
     bpm: int | None = None,
     keyscale: str | None = None,
     timesignature: int | None = None,
     vocal_language: str | None = None,
+    reference_audio: FileInput | None = None,
     webhook_url: str | None = None,
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {
+    webhook_secret: str | None = None,
+) -> tuple[dict[str, Any], list[tuple[str, tuple[str, bytes, str]]]]:
+    """Build the music request body. Returns (fields, files); files is non-empty -> multipart."""
+    webhook = webhook_fields(webhook_url, webhook_secret)
+    payload = drop_none({
         "caption": caption, "model": model, "duration": duration,
         "inference_steps": inference_steps, "guidance_scale": guidance_scale,
-        "seed": seed, "format": format,
-    }
-    if lyrics is not None:
-        payload["lyrics"] = lyrics
-    if bpm is not None:
-        payload["bpm"] = bpm
-    if keyscale is not None:
-        payload["keyscale"] = keyscale
-    if timesignature is not None:
-        payload["timesignature"] = timesignature
-    if vocal_language is not None:
-        payload["vocal_language"] = vocal_language
-    if webhook_url is not None:
-        payload["webhook_url"] = webhook_url
-    return payload
+        "seed": seed, "format": format, "lyrics": lyrics, "bpm": bpm,
+        "keyscale": keyscale, "timesignature": timesignature,
+        "vocal_language": vocal_language,
+    })
+    payload.update(webhook)
+
+    file_tuples: list[tuple[str, tuple[str, bytes, str]]] = []
+    if reference_audio is not None:
+        file_tuples.append(("reference_audio", normalize_file(reference_audio, "reference_audio")))
+    return payload, file_tuples
