@@ -4,6 +4,7 @@ from typing import Any
 
 from deapi._client import AsyncHTTPClient, SyncHTTPClient
 from deapi._files import FileInput, normalize_file
+from deapi._payload import form_bool, webhook_fields
 from deapi._polling import AsyncJob, Job
 from deapi.types.common import PriceResult
 
@@ -23,13 +24,14 @@ class OCR:
         format: str | None = None,
         return_result_in_response: bool | None = None,
         webhook_url: str | None = None,
+        webhook_secret: str | None = None,
     ) -> Job:
         """Submit an image-to-text (OCR) job."""
         url = self._client._resolve_endpoint("img2txt")
         data, files = _build_img2txt_multipart(
             image=image, model=model, language=language, format=format,
             return_result_in_response=return_result_in_response,
-            webhook_url=webhook_url,
+            webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
         resp = self._client.post(url, data=data, files=files)
         request_id = resp["data"]["request_id"]
@@ -43,15 +45,20 @@ class OCR:
         image: FileInput | None = None,
         width: int | None = None,
         height: int | None = None,
+        language: str | None = None,
     ) -> PriceResult:
-        """Calculate price for image-to-text (OCR)."""
+        """Calculate price for image-to-text (OCR) -- pass the image, or its width and height."""
         url = self._client._resolve_endpoint("img2txt_price")
         if image is not None:
             data: dict[str, Any] = {"model": model}
-            files = [("image", normalize_file(image, "image"))]
+            if language is not None:
+                data["language"] = language
+            files =[("image", normalize_file(image, "image"))]
             resp = self._client.post(url, data=data, files=files)
         else:
             payload: dict[str, Any] = {"model": model}
+            if language is not None:
+                payload["language"] = language
             if width is not None:
                 payload["width"] = width
             if height is not None:
@@ -75,13 +82,14 @@ class AsyncOCR:
         format: str | None = None,
         return_result_in_response: bool | None = None,
         webhook_url: str | None = None,
+        webhook_secret: str | None = None,
     ) -> AsyncJob:
         """Submit an image-to-text (OCR) job."""
         url = self._client._resolve_endpoint("img2txt")
         data, files = _build_img2txt_multipart(
             image=image, model=model, language=language, format=format,
             return_result_in_response=return_result_in_response,
-            webhook_url=webhook_url,
+            webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
         resp = await self._client.post(url, data=data, files=files)
         request_id = resp["data"]["request_id"]
@@ -95,15 +103,20 @@ class AsyncOCR:
         image: FileInput | None = None,
         width: int | None = None,
         height: int | None = None,
+        language: str | None = None,
     ) -> PriceResult:
-        """Calculate price for image-to-text (OCR)."""
+        """Calculate price for image-to-text (OCR) -- pass the image, or its width and height."""
         url = self._client._resolve_endpoint("img2txt_price")
         if image is not None:
             data: dict[str, Any] = {"model": model}
-            files = [("image", normalize_file(image, "image"))]
+            if language is not None:
+                data["language"] = language
+            files =[("image", normalize_file(image, "image"))]
             resp = await self._client.post(url, data=data, files=files)
         else:
             payload: dict[str, Any] = {"model": model}
+            if language is not None:
+                payload["language"] = language
             if width is not None:
                 payload["width"] = width
             if height is not None:
@@ -122,17 +135,18 @@ def _build_img2txt_multipart(
     format: str | None = None,
     return_result_in_response: bool | None = None,
     webhook_url: str | None = None,
+    webhook_secret: str | None = None,
 ) -> tuple[dict[str, Any], list[tuple[str, tuple[str, bytes, str]]]]:
     """Build multipart form data and files list for img2txt."""
+    webhook = webhook_fields(webhook_url, webhook_secret)
     data: dict[str, Any] = {"model": model}
     if language is not None:
         data["language"] = language
     if format is not None:
         data["format"] = format
     if return_result_in_response is not None:
-        data["return_result_in_response"] = "1" if return_result_in_response else "0"
-    if webhook_url is not None:
-        data["webhook_url"] = webhook_url
+        data["return_result_in_response"] = form_bool(return_result_in_response)
+    data.update(webhook)
 
     files = [("image", normalize_file(image, "image"))]
     return data, files

@@ -8,3 +8,4 @@ class Text2EmbeddingParams(BaseModel):
     model: str
     return_result_in_response: bool | None = None
     webhook_url: str | None = None
+    webhook_secret: str | None = None

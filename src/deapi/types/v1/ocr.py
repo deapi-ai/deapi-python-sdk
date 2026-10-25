@@ -11,3 +11,4 @@ class Img2TextParams(BaseModel):
     format: str | None = None
     return_result_in_response: bool | None = None
     webhook_url: str | None = None
+    webhook_secret: str | None = None
