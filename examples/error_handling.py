@@ -7,14 +7,19 @@ Usage:
     python examples/error_handling.py
 """
 
-from deapi import DeapiClient
-from deapi._exceptions import (
+from deapi import (
+    DeapiClient,
     AccountSuspendedError,
     AuthenticationError,
     DeapiError,
     InsufficientBalanceError,
+    InsufficientPermissionsError,
+    IpNotAllowedError,
     JobTimeoutError,
+    KeyLimitExceededError,
     NetworkError,
+    PayloadTooLargeError,
+    PermissionDeniedError,
     RateLimitError,
     ServerError,
     ValidationError,
@@ -38,14 +43,34 @@ def generate_with_error_handling() -> None:
         result = job.wait(max_wait=120.0)
         print(f"Success: {result.result_url}")
 
-    except AuthenticationError:
-        print("Invalid API key. Check your DEAPI_API_KEY.")
+    except AuthenticationError as e:
+        # e.code is one of: missing_key, invalid_key, key_expired, key_revoked
+        print(f"Authentication failed ({e.code}). Check your DEAPI_API_KEY.")
+
+    except KeyLimitExceededError as e:
+        # 402 - the API KEY's spend limit is used up (not the account balance).
+        print(f"Key spend limit reached: used {e.used} of {e.limit}. Resets at: {e.resets_at or 'never'}")
+
+    except IpNotAllowedError:
+        print("This IP address is not in the API key's allowlist.")
+
+    except InsufficientPermissionsError:
+        print("This API key's role cannot call this endpoint (admin-only).")
 
     except AccountSuspendedError:
+        # Only a 403 with no error code means the account itself is suspended.
         print("Account suspended. Contact support.")
 
+    except PermissionDeniedError as e:
+        # Any other 403 - inspect e.code
+        print(f"Forbidden ({e.code}): {e.message}")
+
     except InsufficientBalanceError:
+        # 422 - the ACCOUNT is out of credits (different from the key spend limit above).
         print("Not enough credits. Top up at https://deapi.ai")
+
+    except PayloadTooLargeError:
+        print("Uploaded file is too large.")
 
     except ValidationError as e:
         # e.errors is a dict of field -> error messages
