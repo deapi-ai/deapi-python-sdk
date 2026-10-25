@@ -59,11 +59,6 @@ def _check_source(source_url: str | None, source_file: FileInput | None) -> None
         raise ValueError("Either 'source_url' or 'source_file' is required.")
 
 
-def _check_metadata(include_metadata: bool | None, source_file: FileInput | None) -> None:
-    if include_metadata and source_file is not None:
-        raise ValueError("'include_metadata' only applies to URL sources, not file uploads.")
-
-
 def _build_create(
     *,
     source_url: str | None,
@@ -80,7 +75,6 @@ def _build_create(
 ) -> dict[str, Any]:
     """Build the keyword arguments for ``post()`` (JSON for URLs, multipart for files)."""
     _check_source(source_url, source_file)
-    _check_metadata(include_metadata, source_file)
     fields = _transcription_fields(
         model=model, include_ts=include_ts, ts_level=ts_level, diarize=diarize,
         lang=lang, include_metadata=include_metadata,
@@ -100,14 +94,14 @@ def _build_price(
     include_ts: bool | None,
     ts_level: str | None,
     diarize: bool | None,
+    lang: str | None,
     include_metadata: bool | None,
     platform: str | None,
     duration_seconds: float | None,
 ) -> dict[str, Any]:
-    _check_metadata(include_metadata, source_file)
     fields = _transcription_fields(
         model=model, include_ts=include_ts, ts_level=ts_level, diarize=diarize,
-        lang=None, include_metadata=include_metadata,
+        lang=lang, include_metadata=include_metadata,
     )
     fields.update(drop_none({"platform": platform, "duration_seconds": duration_seconds}))
     if source_file is not None:
@@ -184,7 +178,8 @@ class Transcription:
                 under ``info.limits.timestamp_levels`` are accepted.
             diarize: Label speakers (models with ``supports_diarization``); implies timestamps.
             lang: ISO language code; unset or ``auto`` = detect.
-            include_metadata: Return source info on the job status (URL sources only).
+            include_metadata: Return source info as ``metadata`` on the job status. Only URL sources have
+                any (a file upload returns null and is never charged for the flag).
             webhook_secret: 32-255 char key to sign webhooks with; requires ``webhook_url``.
         """
         kwargs = _build_create(
@@ -205,6 +200,7 @@ class Transcription:
         include_ts: bool | None = None,
         ts_level: str | None = None,
         diarize: bool | None = None,
+        lang: str | None = None,
         include_metadata: bool | None = None,
         platform: str | None = None,
         source_url: str | None = None,
@@ -213,13 +209,13 @@ class Transcription:
     ) -> PriceResult:
         """Calculate the price of a transcription.
 
-        Pass the same ``ts_level`` / ``diarize`` / ``include_metadata`` you will pass
+        Pass the same ``ts_level`` / ``diarize`` / ``lang`` / ``include_metadata`` you will pass
         to ``create()``: a quote that omits them comes in under the real charge.
         ``platform`` (e.g. ``tiktok``) matters only when quoting from ``duration_seconds``.
         """
         kwargs = _build_price(
             source_url=source_url, source_file=source_file, model=model, include_ts=include_ts,
-            ts_level=ts_level, diarize=diarize, include_metadata=include_metadata,
+            ts_level=ts_level, diarize=diarize, lang=lang, include_metadata=include_metadata,
             platform=platform, duration_seconds=duration_seconds,
         )
         resp = self._client.post(self._client._resolve_endpoint("transcribe_price"), **kwargs)
@@ -479,6 +475,7 @@ class AsyncTranscription:
         include_ts: bool | None = None,
         ts_level: str | None = None,
         diarize: bool | None = None,
+        lang: str | None = None,
         include_metadata: bool | None = None,
         platform: str | None = None,
         source_url: str | None = None,
@@ -488,7 +485,7 @@ class AsyncTranscription:
         """Calculate the price of a transcription. See ``Transcription.create_price``."""
         kwargs = _build_price(
             source_url=source_url, source_file=source_file, model=model, include_ts=include_ts,
-            ts_level=ts_level, diarize=diarize, include_metadata=include_metadata,
+            ts_level=ts_level, diarize=diarize, lang=lang, include_metadata=include_metadata,
             platform=platform, duration_seconds=duration_seconds,
         )
         resp = await self._client.post(self._client._resolve_endpoint("transcribe_price"), **kwargs)

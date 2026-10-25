@@ -153,11 +153,23 @@ class TestCreateParams:
             assert f'name="{name}"\r\n\r\n{value}\r\n' in body
         assert 'name="ts_level"' not in body and 'name="include_metadata"' not in body
 
-    def test_include_metadata_with_file_rejected(self, client_v2: DeapiClient) -> None:
-        with pytest.raises(ValueError, match="URL sources"):
-            client_v2.transcription.create(model="m", source_file=b"a", include_metadata=True)
-        with pytest.raises(ValueError, match="URL sources"):
-            client_v2.transcription.create_price(model="m", source_file=b"a", include_metadata=True)
+    @respx.mock
+    def test_include_metadata_with_file_allowed(self, client_v2: DeapiClient) -> None:
+        # Spec: a file upload simply returns null metadata and is never charged for the flag.
+        job = respx.post(f"{V2}/audio/transcriptions").mock(return_value=httpx.Response(200, json=JOB))
+        price = respx.post(f"{V2}/audio/transcriptions/price").mock(return_value=httpx.Response(200, json=PRICE))
+        client_v2.transcription.create(model="m", source_file=b"a", include_metadata=True)
+        client_v2.transcription.create_price(model="m", source_file=b"a", include_metadata=True)
+        for route in (job, price):
+            assert 'name="include_metadata"\r\n\r\n1\r\n' in route.calls.last.request.content.decode("latin-1")
+
+    @respx.mock
+    def test_price_sends_lang(self, client_v2: DeapiClient) -> None:
+        route = respx.post(f"{V2}/audio/transcriptions/price").mock(return_value=httpx.Response(200, json=PRICE))
+        client_v2.transcription.create_price(model="m", source_url="https://x.test/a", lang="pl")
+        assert json.loads(route.calls.last.request.content) == {
+            "model": "m", "lang": "pl", "source_url": "https://x.test/a",
+        }
 
     def test_webhook_secret_validation(self, client_v2: DeapiClient) -> None:
         with pytest.raises(ValueError, match="requires webhook_url"):
@@ -206,8 +218,6 @@ class TestCreateParams:
         )
         body = json.loads(route.calls.last.request.content)
         assert body["ts_level"] == "word" and body["include_ts"] is True and body["include_metadata"] is True
-        with pytest.raises(ValueError, match="URL sources"):
-            await async_client_v2.transcription.create(model="m", source_file=b"a", include_metadata=True)
 
     @respx.mock
     @pytest.mark.asyncio
