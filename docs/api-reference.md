@@ -327,7 +327,7 @@ client.video.upscale(*, video: FileInput, model: str, webhook_url=None, webhook_
 client.video.remove_background(*, video: FileInput, model: str, webhook_url=None, webhook_secret=None) -> Job
 ```
 
-Price variants take `model` plus `video` **or** `width` + `height`.
+Price variants take `model` plus `video` **or** `width` + `height` + `duration` (seconds). `upscale()` takes `scale` (2 or 4) on models whose card has a `scale` range, e.g. FlashVSR_Tiny.
 
 ### `replace()`
 

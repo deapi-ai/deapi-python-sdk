@@ -122,8 +122,10 @@ class TestVideoAudio:
             c.video.generate(prompt="p", model="Ltx")
             c.video.generate_price(prompt="p", model="Ltx")
         assert _json(gen) == {"prompt": "p", "model": "Ltx", "width": 512, "height": 512,
-                              "frames": 97, "fps": 24, "seed": -1}
+                              "frames": 97, "fps": 24, "steps": 20, "seed": -1}
         assert "seed" not in _json(price) and _json(price)["fps"] == 24
+        # live: Ltxv price without steps -> 422 "The steps field is required."
+        assert _json(price)["steps"] == 20
 
     @respx.mock
     def test_animate_multipart_strings(self) -> None:

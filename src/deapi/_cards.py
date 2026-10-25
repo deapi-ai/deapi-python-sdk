@@ -24,7 +24,7 @@ _RANDOM_SEED = -1
 
 # Fillable keys per endpoint family (spec-required card-driven params; names match the card).
 IMAGE_KEYS = ("width", "height", "steps")
-VIDEO_KEYS = ("width", "height", "frames", "fps")
+VIDEO_KEYS = ("width", "height", "frames", "fps", "steps")
 TTS_KEYS = ("lang", "speed", "format", "sample_rate")
 MUSIC_KEYS = ("format", "inference_steps", "guidance_scale")
 MUSIC_PRICE_KEYS = ("inference_steps",)
