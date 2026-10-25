@@ -208,6 +208,15 @@ class TestVideoAudio:
 
 class TestFallbacksAndOptOut:
     @respx.mock
+    def test_no_catalogue_fetch_when_every_card_param_is_set(self) -> None:
+        models = _models()
+        gen = _post("images/generations")
+        with _client() as c:
+            c.images.generate(prompt="cat", model="Flux1schnell", width=512, height=512, steps=4, seed=7)
+        assert models.call_count == 0
+        assert _json(gen)["width"] == 512
+
+    @respx.mock
     def test_unknown_model_fills_nothing(self) -> None:
         _models()
         gen = _post("images/generations")
@@ -292,7 +301,7 @@ class TestFallbacksAndOptOut:
     def test_unexpected_shape_fills_nothing(self) -> None:
         respx.get(f"{V2}/models").mock(return_value=httpx.Response(200, json={"oops": 1}))
         gen = _post("images/generations")
-        with _client() as c:
+        with _client() as c, pytest.warns(RuntimeWarning, match="model catalogue"):
             c.images.generate(prompt="cat", model="Flux1schnell")
         assert _json(gen) == {"prompt": "cat", "model": "Flux1schnell", "seed": -1}
 

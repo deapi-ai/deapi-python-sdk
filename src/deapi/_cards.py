@@ -184,6 +184,13 @@ def _wanted(client: Any, payload: dict[str, Any]) -> bool:
     return bool(getattr(client._config, "fill_model_defaults", True)) and bool(payload.get("model"))
 
 
+def _needs_card(payload: dict[str, Any], keys: Iterable[str], tts: bool) -> bool:
+    """True when some card-driven field is still unset, so the catalogue is worth fetching."""
+    if any(payload.get(k) is None for k in keys):
+        return True
+    return tts and (payload.get("mode") is None or payload.get("voice") is None)
+
+
 def _fetch_sync(client: Any) -> dict[str, dict[str, Any]]:
     store: dict[str, dict[str, Any]] = {}
     page = 1
@@ -217,8 +224,9 @@ def fill_payload(
     """
     if not _wanted(client, payload):
         return payload
+    keys = tuple(keys)
     cache = _cache(client)
-    if cache.needs_fetch():
+    if cache.needs_fetch() and _needs_card(payload, keys, tts):
         with cache.tlock:
             if cache.needs_fetch():
                 try:
@@ -235,8 +243,9 @@ async def afill_payload(
     """Async twin of :func:`fill_payload` (uses the async HTTP client)."""
     if not _wanted(client, payload):
         return payload
+    keys = tuple(keys)
     cache = _cache(client)
-    if cache.needs_fetch():
+    if cache.needs_fetch() and _needs_card(payload, keys, tts):
         import asyncio
 
         loop = asyncio.get_running_loop()
