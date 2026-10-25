@@ -64,6 +64,13 @@ class TestModelsSync:
         assert route.calls.last.request.url.params["limit"] == "10"
 
     @respx.mock
+    def test_tags_and_sort(self, client_v2: DeapiClient) -> None:
+        route = respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=_page(["a"], 1, 1)))
+        client_v2.models.list(tags=["new", "beta"], sort="-name")
+        params = route.calls.last.request.url.params
+        assert params["filter[tags]"] == "new,beta" and params["sort"] == "-name"
+
+    @respx.mock
     def test_inference_types_filter(self, client_v2: DeapiClient) -> None:
         route = respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=_page(["a"], 1, 1)))
         client_v2.models.list(inference_types=["txt2img", "img2img"])
@@ -79,7 +86,7 @@ class TestModelsSync:
         models = client_v2.models.list_all(inference_types=["txt2img"])
         assert [m.slug for m in models] == ["a", "b", "c", "d", "e"]
         assert [c.request.url.params["page"] for c in route.calls] == ["1", "2", "3"]
-        assert all(c.request.url.params["limit"] == "50" for c in route.calls)
+        assert all(c.request.url.params["limit"] == "100" for c in route.calls)
         assert all(c.request.url.params["filter[inference_types]"] == "txt2img" for c in route.calls)
 
     @respx.mock

@@ -142,14 +142,14 @@ class TestJobResultFields:
         from deapi.types.common import JobResult
 
         r = JobResult.model_validate({
-            "status": "error", "progress": None, "error_code": "model_failed", "error_reason": "boom",
+            "status": "error", "progress": None, "error_code": "PROCESSING_ERROR", "error_reason": "boom",
             "retryable": True, "refunded": True, "failed_at": "2026-01-01T00:00:00Z",
             "price": {"amount": 0.02, "is_estimated": False}, "metadata": {"a": 1}, "prompt_boosted": True,
             "prompt_boost": {"prompt": "p2", "prompt_original": "p", "negative_prompt": None},
             "reference_labels": ["a"], "brand_new": 7,
         })
         assert r.progress is None
-        assert r.error_code == "model_failed" and r.retryable is True and r.refunded is True
+        assert r.error_code == "PROCESSING_ERROR" and r.retryable is True and r.refunded is True
         assert r.price["amount"] == 0.02
         assert r.prompt_boost.prompt_original == "p"
         assert r.brand_new == 7
@@ -163,9 +163,11 @@ class TestJobResultFields:
     def test_price_and_balance_extra(self) -> None:
         from deapi.types.common import Balance, PriceResult
 
-        p = PriceResult.model_validate({"price": 0.1, "is_estimated": True, "estimate_basis": "rate_card", "x": 1})
-        assert p.is_estimated is True and p.estimate_basis == "rate_card" and p.x == 1
+        p = PriceResult.model_validate({"price": 0.1, "is_estimated": True, "estimate_basis": "model_history", "x": 1})
+        assert p.is_estimated is True and p.estimate_basis == "model_history" and p.x == 1
         assert PriceResult.model_validate({"price": 0.1}).is_estimated is None
+        # The spec requires nothing: an unavailable estimate may carry no price.
+        assert PriceResult.model_validate({"is_estimated": True, "estimate_basis": "unavailable"}).price is None
         assert Balance.model_validate({"balance": 1.0, "currency": "USD"}).currency == "USD"
 
 

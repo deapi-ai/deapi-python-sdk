@@ -30,7 +30,7 @@ class JobResult(BaseModel):
     result: str | None = None
     progress: float | None = 0.0
     # Failure surface (all null unless the job failed)
-    error_code: str | None = None
+    error_code: str | None = None  # WORKER_TIMEOUT | WORKER_ERROR | PROCESSING_ERROR
     error_reason: str | None = None
     retryable: bool | None = None
     refunded: bool | None = None
@@ -40,15 +40,16 @@ class JobResult(BaseModel):
     metadata: dict[str, Any] | None = None
     prompt_boosted: bool | None = None
     prompt_boost: PromptBoost | None = None
-    reference_labels: Any = None
+    reference_labels: Any = None  # not in the v2 spec (current responses omit it); kept for compatibility
 
     model_config = {"extra": "allow"}
 
 
 class PriceResult(BaseModel):
-    price: float
+    # The spec marks nothing required; ``price`` may be absent when ``estimate_basis`` is "unavailable".
+    price: float | None = None
     is_estimated: bool | None = None
-    # request_params | model_history | model_default | rate_card | unavailable
+    # request_params | model_history | model_default | unavailable (only on estimated quotes)
     estimate_basis: str | None = None
 
     model_config = {"extra": "allow"}
