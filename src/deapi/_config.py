@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
+from deapi._cards import parse_flag
 from deapi._constants import PREFIXES
 from deapi._version import __version__
 
@@ -19,6 +20,7 @@ class ClientConfig:
     timeout: float = _DEFAULT_TIMEOUT
     max_retries: int = _DEFAULT_MAX_RETRIES
     api_version: str = _DEFAULT_API_VERSION
+    fill_model_defaults: bool = True
     _user_agent: str = field(init=False, default=f"deapi-python-sdk/{__version__}")
 
     @classmethod
@@ -30,6 +32,7 @@ class ClientConfig:
         timeout: float | None = None,
         max_retries: int | None = None,
         api_version: str | None = None,
+        fill_model_defaults: bool | None = None,
     ) -> ClientConfig:
         resolved_key = (api_key or os.environ.get("DEAPI_API_KEY", "")).strip()
         if not resolved_key:
@@ -42,6 +45,11 @@ class ClientConfig:
             timeout=timeout if timeout is not None else _DEFAULT_TIMEOUT,
             max_retries=max_retries if max_retries is not None else _DEFAULT_MAX_RETRIES,
             api_version=api_version or os.environ.get("DEAPI_API_VERSION", _DEFAULT_API_VERSION),
+            fill_model_defaults=(
+                fill_model_defaults
+                if fill_model_defaults is not None
+                else parse_flag(os.environ.get("DEAPI_FILL_MODEL_DEFAULTS"))
+            ),
         )
 
     @property

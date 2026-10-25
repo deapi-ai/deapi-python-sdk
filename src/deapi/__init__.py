@@ -113,6 +113,11 @@ _RESOURCE_LOADERS: dict[str, dict[str, Any]] = {
 class DeapiClient:
     """Synchronous DeAPI client.
 
+    ``fill_model_defaults`` (default on; env ``DEAPI_FILL_MODEL_DEFAULTS=0`` disables): generation
+    parameters you leave unset (width, height, steps, frames, fps, lang, ...) are taken from the
+    model card's ``info.defaults`` (one catalogue request per client, cached), and ``seed`` defaults
+    to -1 (random) where the API requires it. Pass ``False`` to send exactly what you set.
+
     Usage::
 
         client = DeapiClient(api_key="sk-...")
@@ -146,6 +151,7 @@ class DeapiClient:
         timeout: float | None = None,
         max_retries: int | None = None,
         api_version: str | None = None,
+        fill_model_defaults: bool | None = None,
     ) -> None:
         self._config = ClientConfig.from_env(
             api_key=api_key,
@@ -153,6 +159,7 @@ class DeapiClient:
             timeout=timeout,
             max_retries=max_retries,
             api_version=api_version,
+            fill_model_defaults=fill_model_defaults,
         )
         self._http_client = SyncHTTPClient(self._config)
         self._attach_resources()
@@ -184,6 +191,8 @@ class DeapiClient:
 class AsyncDeapiClient:
     """Asynchronous DeAPI client.
 
+    Takes the same ``fill_model_defaults`` option as :class:`DeapiClient`.
+
     Usage::
 
         async with AsyncDeapiClient(api_key="sk-...") as client:
@@ -212,6 +221,7 @@ class AsyncDeapiClient:
         timeout: float | None = None,
         max_retries: int | None = None,
         api_version: str | None = None,
+        fill_model_defaults: bool | None = None,
     ) -> None:
         self._config = ClientConfig.from_env(
             api_key=api_key,
@@ -219,6 +229,7 @@ class AsyncDeapiClient:
             timeout=timeout,
             max_retries=max_retries,
             api_version=api_version,
+            fill_model_defaults=fill_model_defaults,
         )
         self._http_client = AsyncHTTPClient(self._config)
         self._attach_resources()
