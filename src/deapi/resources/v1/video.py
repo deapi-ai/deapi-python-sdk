@@ -118,7 +118,8 @@ class Video:
         ``<Picture 1>``, ``ref_images[1]`` is ``<Picture 2>``, ``ref_videos[0]`` is ``<Video 1>`` and
         ``ref_audios[0]`` is ``<Audio 1>`` (``<Audio 2>`` if the reference video has its own audio track).
         Numbering is independent per type. Reference limits come from the model card
-        (``max_ref_images``, ``max_ref_videos``, ``max_ref_audios``, ``max_ref_files``).
+        (``max_ref_images``, ``max_ref_videos``, ``max_ref_audios``, ``max_ref_files``); the API never
+        accepts more than 9 images, 1 video or 3 audios. Parts are sent as ``ref_images[0]``, ``ref_images[1]``, ...
 
         Raises:
             ValueError: mixed modes, audio-only references, or no image source at all.
@@ -150,10 +151,12 @@ class Video:
         guidance: float | None = None,
         ref_images_count: int | None = None,
         ref_videos_count: int | None = None,
+        ref_audios_count: int | None = None,
     ) -> PriceResult:
         """Calculate price for image-to-video animation.
 
-        For reference mode pass the *number* of reference files the job will carry, not the files.
+        For reference mode pass the *number* of reference files the job will carry, not the files
+        (``ref_images_count`` 0-9, ``ref_videos_count`` 0-1, ``ref_audios_count`` 0-3).
         More than 2 reference images applies a x2 multiplier, any reference video x3 (the highest wins,
         they do not stack). Reference audio adds no surcharge. The quote does not check model limits.
         """
@@ -162,6 +165,7 @@ class Video:
             "model": model, "width": width, "height": height,
             "frames": frames, "fps": fps, "steps": steps, "guidance": guidance,
             "ref_images_count": ref_images_count, "ref_videos_count": ref_videos_count,
+            "ref_audios_count": ref_audios_count,
         })
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
@@ -227,7 +231,7 @@ class Video:
         *,
         model: str,
         video_url: str | None = None,
-        video: FileInput | None = None,
+        video_file: FileInput | None = None,
         preset: str | None = None,
         include_metadata: bool | None = None,
         return_result_in_response: bool | None = None,
@@ -238,19 +242,20 @@ class Video:
 
         Produces a timestamped index of what happens on screen (events, scenes, metadata); it reads the
         picture, not the audio (use ``audio.transcribe`` for speech). Pass exactly one source: ``video_url``
-        (YouTube, Twitter/X, Twitch, Kick, TikTok) or ``video`` (file upload, sent as ``video_file``).
+        (YouTube, Twitter/X, Twitch, Kick, TikTok) or ``video_file`` (file upload).
 
-        ``preset`` only applies to models whose card lists ``available_presets``. ``include_metadata`` is
-        only valid with a URL source. With ``return_result_in_response=True`` the JSON is also returned
+        ``preset`` is honoured only by models whose card has ``supports_presets`` (``available_presets``
+        lists the choices: ``fast``, ``balanced``, ``detail``). ``include_metadata`` adds source metadata
+        to the job status; only URL sources have any (a file returns null, uncharged). With ``return_result_in_response=True`` the JSON is also returned
         inline in ``JobResult.result``; otherwise download ``JobResult.result_url``. Use
         :meth:`get_description` to get a typed :class:`~deapi.types.v1.video.VideoDescription`.
 
         Raises:
-            ValueError: not exactly one source, or ``include_metadata`` with a file.
+            ValueError: not exactly one source.
         """
         url = self._client._resolve_endpoint("vid_description")
         data, files = _build_describe_form(
-            model=model, video_url=video_url, video=video, preset=preset,
+            model=model, video_url=video_url, video_file=video_file, preset=preset,
             include_metadata=include_metadata, return_result_in_response=return_result_in_response,
             webhook=webhook_fields(webhook_url, webhook_secret),
         )
@@ -264,7 +269,7 @@ class Video:
         *,
         model: str,
         video_url: str | None = None,
-        video: FileInput | None = None,
+        video_file: FileInput | None = None,
         duration_seconds: float | None = None,
         platform: str | None = None,
         preset: str | None = None,
@@ -272,14 +277,14 @@ class Video:
     ) -> PriceResult:
         """Calculate price for a video description.
 
-        Pass exactly one source: ``video_url``, ``video`` (file) or ``duration_seconds``. ``platform``
+        Pass exactly one source: ``video_url``, ``video_file`` or ``duration_seconds``. ``platform``
         (``youtube``, ``twitter``, ``twitch``, ``kick``, ``tiktok``) is only accepted with
         ``duration_seconds``; TikTok is priced on a fixed card by length (max 10 minutes) and a TikTok URL
         cannot be quoted, so quote it by duration. Use the same ``preset`` / ``include_metadata`` as the job.
         """
         url = self._client._resolve_endpoint("vid_description_price")
         data, files = _build_describe_price_form(
-            model=model, video_url=video_url, video=video, duration_seconds=duration_seconds,
+            model=model, video_url=video_url, video_file=video_file, duration_seconds=duration_seconds,
             platform=platform, preset=preset, include_metadata=include_metadata,
         )
         resp = self._client.post(url, data=data, files=files)
@@ -567,7 +572,8 @@ class AsyncVideo:
         ``<Picture 1>``, ``ref_images[1]`` is ``<Picture 2>``, ``ref_videos[0]`` is ``<Video 1>`` and
         ``ref_audios[0]`` is ``<Audio 1>`` (``<Audio 2>`` if the reference video has its own audio track).
         Numbering is independent per type. Reference limits come from the model card
-        (``max_ref_images``, ``max_ref_videos``, ``max_ref_audios``, ``max_ref_files``).
+        (``max_ref_images``, ``max_ref_videos``, ``max_ref_audios``, ``max_ref_files``); the API never
+        accepts more than 9 images, 1 video or 3 audios. Parts are sent as ``ref_images[0]``, ``ref_images[1]``, ...
 
         Raises:
             ValueError: mixed modes, audio-only references, or no image source at all.
@@ -599,10 +605,12 @@ class AsyncVideo:
         guidance: float | None = None,
         ref_images_count: int | None = None,
         ref_videos_count: int | None = None,
+        ref_audios_count: int | None = None,
     ) -> PriceResult:
         """Calculate price for image-to-video animation.
 
-        For reference mode pass the *number* of reference files the job will carry, not the files.
+        For reference mode pass the *number* of reference files the job will carry, not the files
+        (``ref_images_count`` 0-9, ``ref_videos_count`` 0-1, ``ref_audios_count`` 0-3).
         More than 2 reference images applies a x2 multiplier, any reference video x3 (the highest wins,
         they do not stack). Reference audio adds no surcharge. The quote does not check model limits.
         """
@@ -611,6 +619,7 @@ class AsyncVideo:
             "model": model, "width": width, "height": height,
             "frames": frames, "fps": fps, "steps": steps, "guidance": guidance,
             "ref_images_count": ref_images_count, "ref_videos_count": ref_videos_count,
+            "ref_audios_count": ref_audios_count,
         })
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
@@ -676,7 +685,7 @@ class AsyncVideo:
         *,
         model: str,
         video_url: str | None = None,
-        video: FileInput | None = None,
+        video_file: FileInput | None = None,
         preset: str | None = None,
         include_metadata: bool | None = None,
         return_result_in_response: bool | None = None,
@@ -687,19 +696,20 @@ class AsyncVideo:
 
         Produces a timestamped index of what happens on screen (events, scenes, metadata); it reads the
         picture, not the audio (use ``audio.transcribe`` for speech). Pass exactly one source: ``video_url``
-        (YouTube, Twitter/X, Twitch, Kick, TikTok) or ``video`` (file upload, sent as ``video_file``).
+        (YouTube, Twitter/X, Twitch, Kick, TikTok) or ``video_file`` (file upload).
 
-        ``preset`` only applies to models whose card lists ``available_presets``. ``include_metadata`` is
-        only valid with a URL source. With ``return_result_in_response=True`` the JSON is also returned
+        ``preset`` is honoured only by models whose card has ``supports_presets`` (``available_presets``
+        lists the choices: ``fast``, ``balanced``, ``detail``). ``include_metadata`` adds source metadata
+        to the job status; only URL sources have any (a file returns null, uncharged). With ``return_result_in_response=True`` the JSON is also returned
         inline in ``JobResult.result``; otherwise download ``JobResult.result_url``. Use
         :meth:`get_description` to get a typed :class:`~deapi.types.v1.video.VideoDescription`.
 
         Raises:
-            ValueError: not exactly one source, or ``include_metadata`` with a file.
+            ValueError: not exactly one source.
         """
         url = self._client._resolve_endpoint("vid_description")
         data, files = _build_describe_form(
-            model=model, video_url=video_url, video=video, preset=preset,
+            model=model, video_url=video_url, video_file=video_file, preset=preset,
             include_metadata=include_metadata, return_result_in_response=return_result_in_response,
             webhook=webhook_fields(webhook_url, webhook_secret),
         )
@@ -713,7 +723,7 @@ class AsyncVideo:
         *,
         model: str,
         video_url: str | None = None,
-        video: FileInput | None = None,
+        video_file: FileInput | None = None,
         duration_seconds: float | None = None,
         platform: str | None = None,
         preset: str | None = None,
@@ -721,14 +731,14 @@ class AsyncVideo:
     ) -> PriceResult:
         """Calculate price for a video description.
 
-        Pass exactly one source: ``video_url``, ``video`` (file) or ``duration_seconds``. ``platform``
+        Pass exactly one source: ``video_url``, ``video_file`` or ``duration_seconds``. ``platform``
         (``youtube``, ``twitter``, ``twitch``, ``kick``, ``tiktok``) is only accepted with
         ``duration_seconds``; TikTok is priced on a fixed card by length (max 10 minutes) and a TikTok URL
         cannot be quoted, so quote it by duration. Use the same ``preset`` / ``include_metadata`` as the job.
         """
         url = self._client._resolve_endpoint("vid_description_price")
         data, files = _build_describe_price_form(
-            model=model, video_url=video_url, video=video, duration_seconds=duration_seconds,
+            model=model, video_url=video_url, video_file=video_file, duration_seconds=duration_seconds,
             platform=platform, preset=preset, include_metadata=include_metadata,
         )
         resp = await self._client.post(url, data=data, files=files)
@@ -980,6 +990,9 @@ def _build_img2video_multipart(
         raise ValueError(
             "ref_images/ref_videos/ref_audios cannot be combined with first_frame_image/last_frame_image"
         )
+    for label, items, cap in (("ref_images", images, 9), ("ref_videos", videos, 1), ("ref_audios", audios, 3)):
+        if len(items) > cap:
+            raise ValueError(f"{label} accepts at most {cap} files (got {len(items)})")
     if audios and not (images or videos):
         raise ValueError("ref_audios requires at least one ref_images or ref_videos entry")
     if first_frame_image is None and last_frame_image is None and not (images or videos):
@@ -1006,13 +1019,13 @@ def _build_img2video_multipart(
         file_tuples.append(("first_frame_image", normalize_file(first_frame_image, "first_frame_image")))
     if last_frame_image is not None:
         file_tuples.append(("last_frame_image", normalize_file(last_frame_image, "last_frame_image")))
-    # Repeated `field[]` parts keep the given order; that order binds files to <Picture N>/<Video N>/<Audio N>.
-    for item in images:
-        file_tuples.append(("ref_images[]", normalize_file(item, "ref_image")))
-    for item in videos:
-        file_tuples.append(("ref_videos[]", normalize_file(item, "ref_video")))
-    for item in audios:
-        file_tuples.append(("ref_audios[]", normalize_file(item, "ref_audio")))
+    # Explicit indices (`ref_images[0]`, `ref_images[1]`, ...) bind files to <Picture N>/<Video N>/<Audio N>.
+    for i, item in enumerate(images):
+        file_tuples.append((f"ref_images[{i}]", normalize_file(item, "ref_image")))
+    for i, item in enumerate(videos):
+        file_tuples.append((f"ref_videos[{i}]", normalize_file(item, "ref_video")))
+    for i, item in enumerate(audios):
+        file_tuples.append((f"ref_audios[{i}]", normalize_file(item, "ref_audio")))
 
     return data, file_tuples
 
@@ -1089,16 +1102,14 @@ def _build_describe_form(
     *,
     model: str,
     video_url: str | None,
-    video: FileInput | None,
+    video_file: FileInput | None,
     preset: str | None,
     include_metadata: bool | None,
     return_result_in_response: bool | None,
     webhook: dict[str, str],
 ) -> tuple[dict[str, Any], list[tuple[str, tuple[str, bytes, str]]] | None]:
-    if (video_url is None) == (video is None):
-        raise ValueError("Provide exactly one of 'video_url' or 'video'")
-    if include_metadata is not None and video_url is None:
-        raise ValueError("include_metadata is only valid with a video_url source")
+    if (video_url is None) == (video_file is None):
+        raise ValueError("Provide exactly one of 'video_url' or 'video_file'")
     data: dict[str, Any] = {"model": model}
     if preset is not None:
         data["preset"] = preset
@@ -1110,22 +1121,22 @@ def _build_describe_form(
     if video_url is not None:
         data["video_url"] = video_url
         return data, None
-    return data, [("video_file", normalize_file(video, "video_file"))]  # type: ignore[arg-type]
+    return data, [("video_file", normalize_file(video_file, "video_file"))]  # type: ignore[arg-type]
 
 
 def _build_describe_price_form(
     *,
     model: str,
     video_url: str | None,
-    video: FileInput | None,
+    video_file: FileInput | None,
     duration_seconds: float | None,
     platform: str | None,
     preset: str | None,
     include_metadata: bool | None,
 ) -> tuple[dict[str, Any], list[tuple[str, tuple[str, bytes, str]]] | None]:
-    sources = [s for s in (video_url, video, duration_seconds) if s is not None]
+    sources = [s for s in (video_url, video_file, duration_seconds) if s is not None]
     if len(sources) != 1:
-        raise ValueError("Provide exactly one of 'video_url', 'video' or 'duration_seconds'")
+        raise ValueError("Provide exactly one of 'video_url', 'video_file' or 'duration_seconds'")
     if platform is not None and duration_seconds is None:
         raise ValueError("platform is only accepted together with duration_seconds")
     data: dict[str, Any] = {"model": model}
@@ -1141,7 +1152,7 @@ def _build_describe_price_form(
         if platform is not None:
             data["platform"] = platform
         return data, None
-    return data, [("video_file", normalize_file(video, "video_file"))]  # type: ignore[arg-type]
+    return data, [("video_file", normalize_file(video_file, "video_file"))]  # type: ignore[arg-type]
 
 
 def _description_source(result: JobResult | str) -> tuple[Any, str]:

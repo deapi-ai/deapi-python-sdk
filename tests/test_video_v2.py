@@ -91,10 +91,10 @@ class TestAnimateReferences:
             enhance_prompt=True, webhook_url="https://x.example/h", webhook_secret=SECRET,
         )
         fields = multipart_fields(route.calls.last.request)
-        file_parts = [(n, b) for n, b in fields if n.endswith("[]")]
+        file_parts = [(n, b) for n, b in fields if n.endswith("]")]
         assert file_parts == [
-            ("ref_images[]", b"img1"), ("ref_images[]", b"img2"),
-            ("ref_videos[]", b"vid"), ("ref_audios[]", b"aud"),
+            ("ref_images[0]", b"img1"), ("ref_images[1]", b"img2"),
+            ("ref_videos[0]", b"vid"), ("ref_audios[0]", b"aud"),
         ]
         by_name = dict(fields)
         assert by_name["enhance_prompt"] == b"1"
@@ -115,6 +115,18 @@ class TestAnimateReferences:
         with pytest.raises(ValueError, match="cannot be combined"):
             client_v2.video.animate(prompt="p", model="m", ref_images=[b"x"], **{keyframe: b"y"})
 
+    @pytest.mark.parametrize("field,cap", [("ref_images", 9), ("ref_videos", 1), ("ref_audios", 3)])
+    def test_reference_caps(self, client_v2: DeapiClient, field: str, cap: int) -> None:
+        kwargs: dict = {"ref_images": [b"i"], field: [b"x"] * (cap + 1)}
+        with pytest.raises(ValueError, match=f"{field} accepts at most {cap}"):
+            client_v2.video.animate(prompt="p", model="m", **kwargs)
+
+    @respx.mock
+    def test_price_audio_count(self, client_v2: DeapiClient) -> None:
+        route = respx.post(f"{V2}/videos/animations/price").mock(return_value=httpx.Response(200, json=PRICE))
+        client_v2.video.animate_price(model="m", ref_audios_count=2)
+        assert json.loads(route.calls.last.request.content) == {"model": "m", "ref_audios_count": 2}
+
     def test_audio_alone_rejected(self, client_v2: DeapiClient) -> None:
         with pytest.raises(ValueError, match="ref_audios"):
             client_v2.video.animate(prompt="p", model="m", ref_audios=[b"x"])
@@ -127,7 +139,7 @@ class TestAnimateReferences:
     def test_video_only_refs_ok(self, client_v2: DeapiClient) -> None:
         route = respx.post(f"{V2}/videos/animations").mock(return_value=httpx.Response(200, json=JOB))
         client_v2.video.animate(prompt="p", model="m", ref_videos=[b"v"])
-        assert "ref_videos[]" in names(route.calls.last.request)
+        assert "ref_videos[0]" in names(route.calls.last.request)
 
     @respx.mock
     def test_price_counts(self, client_v2: DeapiClient) -> None:
@@ -205,7 +217,7 @@ class TestDescribe:
     @respx.mock
     def test_file_source(self, client_v2: DeapiClient) -> None:
         route = respx.post(f"{V2}/videos/descriptions").mock(return_value=httpx.Response(200, json=JOB))
-        client_v2.video.describe(model="Marlin_2B", video=b"bytes")
+        client_v2.video.describe(model="Marlin_2B", video_file=b"bytes")
         fields = multipart_fields(route.calls.last.request)
         assert ("video_file", b"bytes") in fields
         assert [n for n, _ in fields] == ["model", "video_file"]
@@ -214,11 +226,18 @@ class TestDescribe:
         with pytest.raises(ValueError):
             client_v2.video.describe(model="m")
         with pytest.raises(ValueError):
-            client_v2.video.describe(model="m", video_url="https://a.example/v", video=b"x")
+            client_v2.video.describe(model="m", video_url="https://a.example/v", video_file=b"x")
 
-    def test_metadata_needs_url(self, client_v2: DeapiClient) -> None:
-        with pytest.raises(ValueError, match="include_metadata"):
-            client_v2.video.describe(model="m", video=b"x", include_metadata=True)
+    @respx.mock
+    def test_metadata_allowed_with_file(self, client_v2: DeapiClient) -> None:
+        # Spec: include_metadata is valid for file sources too (returns null metadata, never charged).
+        route = respx.post(f"{V2}/videos/descriptions").mock(return_value=httpx.Response(200, json=JOB))
+        client_v2.video.describe(model="m", video_file=b"x", include_metadata=True)
+        assert dict(multipart_fields(route.calls.last.request))["include_metadata"] == b"1"
+
+    def test_video_param_renamed(self, client_v2: DeapiClient) -> None:
+        with pytest.raises(TypeError):
+            client_v2.video.describe(model="m", video=b"x")  # type: ignore[call-arg]
 
     @respx.mock
     def test_price_by_duration(self, client_v2: DeapiClient) -> None:
@@ -235,7 +254,7 @@ class TestDescribe:
         route = respx.post(f"{V2}/videos/descriptions/price").mock(return_value=httpx.Response(200, json=PRICE))
         client_v2.video.describe_price(model="m", video_url="https://youtu.be/x", include_metadata=False)
         assert form(route.calls.last.request)["include_metadata"] == "0"
-        client_v2.video.describe_price(model="m", video=b"f")
+        client_v2.video.describe_price(model="m", video_file=b"f")
         assert ("video_file", b"f") in multipart_fields(route.calls.last.request)
 
     def test_price_source_rules(self, client_v2: DeapiClient) -> None:
@@ -318,7 +337,7 @@ class TestAsyncParity:
         await async_client_v2.video.animate(
             prompt="p", model="m", ref_images=[b"1", b"2"], ref_audios=[b"a"], ref_videos=[b"v"]
         )
-        assert names(ani.calls.last.request)[-4:] == ["ref_images[]", "ref_images[]", "ref_videos[]", "ref_audios[]"]
+        assert names(ani.calls.last.request)[-4:] == ["ref_images[0]", "ref_images[1]", "ref_videos[0]", "ref_audios[0]"]
         with pytest.raises(ValueError):
             await async_client_v2.video.animate(prompt="p", model="m", ref_images=[b"1"], first_frame_image=b"f")
 
@@ -333,7 +352,7 @@ class TestAsyncParity:
     @respx.mock
     async def test_describe_and_fetch(self, async_client_v2: AsyncDeapiClient) -> None:
         route = respx.post(f"{V2}/videos/descriptions").mock(return_value=httpx.Response(200, json=JOB))
-        await async_client_v2.video.describe(model="m", video=b"x", webhook_url="https://x.example/h", webhook_secret=SECRET)
+        await async_client_v2.video.describe(model="m", video_file=b"x", webhook_url="https://x.example/h", webhook_secret=SECRET)
         assert dict(multipart_fields(route.calls.last.request))["video_file"] == b"x"
         with pytest.raises(ValueError):
             await async_client_v2.video.describe(model="m")
