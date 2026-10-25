@@ -11,21 +11,53 @@ class JobSubmission(BaseModel):
     request_id: str
 
 
+class PromptBoost(BaseModel):
+    """What the inline prompt booster did to the prompt (present only once the boost ran)."""
+
+    prompt: str | None = None
+    prompt_original: str | None = None
+    negative_prompt: str | None = None
+    negative_prompt_original: str | None = None
+
+    model_config = {"extra": "allow"}
+
+
 class JobResult(BaseModel):
     status: JobStatus
     preview: str | None = None
     result_url: str | None = None
-    results_alt_formats: dict[str, str] | None = None
+    results_alt_formats: dict[str, Any] | None = None
     result: str | None = None
-    progress: float = 0.0
+    progress: float | None = 0.0
+    # Failure surface (all null unless the job failed)
+    error_code: str | None = None
+    error_reason: str | None = None
+    retryable: bool | None = None
+    refunded: bool | None = None
+    failed_at: str | None = None
+    # Actual cost, e.g. {"amount": 0.01, "is_estimated": False}
+    price: dict[str, Any] | float | None = None
+    metadata: dict[str, Any] | None = None
+    prompt_boosted: bool | None = None
+    prompt_boost: PromptBoost | None = None
+    reference_labels: Any = None
+
+    model_config = {"extra": "allow"}
 
 
 class PriceResult(BaseModel):
     price: float
+    is_estimated: bool | None = None
+    # request_params | model_history | model_default | rate_card | unavailable
+    estimate_basis: str | None = None
+
+    model_config = {"extra": "allow"}
 
 
 class Balance(BaseModel):
     balance: float
+
+    model_config = {"extra": "allow"}
 
 
 class PaginationLinks(BaseModel):
@@ -34,23 +66,53 @@ class PaginationLinks(BaseModel):
     prev: str | None = None
     next: str | None = None
 
+    model_config = {"extra": "allow"}
+
 
 class PaginationMeta(BaseModel):
-    current_page: int
-    last_page: int
-    per_page: int
-    total: int
+    current_page: int | None = None
+    last_page: int | None = None
+    per_page: int | None = None
+    total: int | None = None
+
+    model_config = {"extra": "allow"}
 
 
 class ModelInfo(BaseModel):
     name: str
     slug: str
     inference_types: list[str]
+    status: str | None = None  # standard_model | test_model
+    tags: list[str] = []
     info: dict[str, Any] | None = None
     loras: list[dict[str, Any]] | None = None
     languages: list[dict[str, Any]] | None = None
 
     model_config = {"extra": "allow"}
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _normalize_tags(cls, v: Any) -> Any:
+        return [] if v is None else v
+
+    def _info_section(self, key: str) -> dict[str, Any]:
+        section = (self.info or {}).get(key)
+        return section if isinstance(section, dict) else {}
+
+    @property
+    def limits(self) -> dict[str, Any]:
+        """``info.limits`` (resolution, duration, steps, ...) or ``{}``."""
+        return self._info_section("limits")
+
+    @property
+    def features(self) -> dict[str, Any]:
+        """``info.features`` (feature flags such as ``supports_steps``) or ``{}``."""
+        return self._info_section("features")
+
+    @property
+    def defaults(self) -> dict[str, Any]:
+        """``info.defaults`` (default parameter values) or ``{}``."""
+        return self._info_section("defaults")
 
     @field_validator("info", mode="before")
     @classmethod
@@ -63,5 +125,13 @@ class ModelInfo(BaseModel):
 
 class ModelsResponse(BaseModel):
     data: list[ModelInfo]
-    links: PaginationLinks
-    meta: PaginationMeta
+    links: PaginationLinks | None = None
+    meta: PaginationMeta | None = None
+
+    model_config = {"extra": "allow"}
+
+    @field_validator("links", "meta", mode="before")
+    @classmethod
+    def _lenient_pagination(cls, v: Any) -> Any:
+        # PHP may send [] for empty objects; anything non-dict is dropped.
+        return v if isinstance(v, dict) else None
