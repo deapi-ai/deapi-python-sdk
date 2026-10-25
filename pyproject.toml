@@ -43,7 +43,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://deapi.ai"
-Documentation = "https://docs.deapi.ai/sdk/python"
+Documentation = "https://docs.deapi.ai/other/sdks-and-integrations"
 Repository = "https://github.com/deapi-ai/deapi-python-sdk"
 
 [tool.hatch.build.targets.wheel]
