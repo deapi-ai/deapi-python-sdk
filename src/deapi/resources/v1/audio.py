@@ -45,7 +45,7 @@ class Audio:
             ref_text=ref_text, instruct=instruct,
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
-        data = fill_payload(self._client, data, TTS_KEYS, form=bool(files))
+        data = fill_payload(self._client, data, TTS_KEYS, form=bool(files), tts=True)
         if files:
             resp = self._client.post(url, data=data, files=files)
         else:
@@ -79,7 +79,7 @@ class Audio:
             "sample_rate": sample_rate, "text": text, "count_text": count_text,
             "mode": mode, "voice": voice, "instruct": instruct,
         })
-        payload = fill_payload(self._client, payload, TTS_KEYS)
+        payload = fill_payload(self._client, payload, TTS_KEYS, tts=True)
         resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -196,7 +196,7 @@ class AsyncAudio:
             ref_text=ref_text, instruct=instruct,
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
-        data = await afill_payload(self._client, data, TTS_KEYS, form=bool(files))
+        data = await afill_payload(self._client, data, TTS_KEYS, form=bool(files), tts=True)
         if files:
             resp = await self._client.post(url, data=data, files=files)
         else:
@@ -230,7 +230,7 @@ class AsyncAudio:
             "sample_rate": sample_rate, "text": text, "count_text": count_text,
             "mode": mode, "voice": voice, "instruct": instruct,
         })
-        payload = await afill_payload(self._client, payload, TTS_KEYS)
+        payload = await afill_payload(self._client, payload, TTS_KEYS, tts=True)
         resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 

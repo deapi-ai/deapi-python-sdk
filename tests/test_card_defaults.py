@@ -154,8 +154,30 @@ class TestVideoAudio:
             c.audio.synthesize_price(model="Chatterbox", text="hi")
         body = _json(gen)
         assert body == {"text": "hi", "model": "Chatterbox", "lang": "en", "speed": 1.5,
-                        "format": "mp3", "sample_rate": 24000}
-        assert _json(price)["sample_rate"] == 24000 and "voice" not in _json(price)
+                        "format": "mp3", "sample_rate": 24000, "voice": "default"}
+        assert _json(price)["sample_rate"] == 24000 and _json(price)["voice"] == "default"
+
+    @respx.mock
+    def test_tts_mode_and_voice_from_card(self) -> None:
+        # Live API: a missing mode means custom_voice, which then requires a voice
+        # ("The voice field is required for custom_voice mode") and rejects design-only models
+        # ("This model does not support the 'custom_voice' mode").
+        design = {"slug": "Design", "info": {
+            "defaults": {"lang": "English", "speed": 1, "voice": "default", "format": "mp3", "sample_rate": 24000},
+            "features": {"supports_custom_voice": False, "supports_voice_design": True, "supports_voice_clone": False}}}
+        clone = {"slug": "Clone", "info": {
+            "defaults": {"voice": "default"},
+            "features": {"supports_custom_voice": False, "supports_voice_design": False, "supports_voice_clone": True}}}
+        _models((PAGE1 + [design, clone], PAGE2))
+        gen = _post("audio/speech")
+        with _client() as c:
+            c.audio.synthesize(text="hi", model="Design", instruct="calm")
+            body = _json(gen)
+            assert body["mode"] == "voice_design" and "voice" not in body
+            c.audio.synthesize(text="hi", model="Clone", ref_audio=PNG)
+            assert 'voice_clone' in _form(gen) and 'name="mode"' in _form(gen)
+            c.audio.synthesize(text="hi", model="Design", mode="voice_design", voice="x")
+            assert _json(gen)["voice"] == "x"  # explicit values win
 
     @respx.mock
     def test_music_seed_and_format(self) -> None:

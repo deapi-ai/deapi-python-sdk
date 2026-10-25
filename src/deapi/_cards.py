@@ -107,14 +107,39 @@ def _last_page(resp: Any) -> int:
     return last if isinstance(last, int) and last > 0 else 1
 
 
+def _fill_tts_mode(cache: _CardCache, payload: dict[str, Any]) -> None:
+    """Fill ``mode`` / ``voice`` of a TTS request from the model card.
+
+    The API treats a missing ``mode`` as ``custom_voice`` (which then needs ``voice``), so a
+    voice-design or voice-clone only model fails unless the mode is named, and a custom-voice
+    model fails without a ``voice``. Explicit values always win.
+    """
+    if cache.failed or cache.cards is None or payload.get("model") not in cache.cards:
+        return
+    info = cache.cards[payload["model"]]
+    features = info.get("features") if isinstance(info.get("features"), dict) else {}
+    defaults = info.get("defaults") if isinstance(info.get("defaults"), dict) else {}
+    if payload.get("mode") is None and features.get("supports_custom_voice") is False:
+        if features.get("supports_voice_design") and not features.get("supports_voice_clone"):
+            payload["mode"] = "voice_design"
+        elif features.get("supports_voice_clone") and not features.get("supports_voice_design"):
+            payload["mode"] = "voice_clone"
+    if (payload.get("mode") or "custom_voice") == "custom_voice":
+        if payload.get("voice") is None and defaults.get("voice") is not None:
+            payload["voice"] = defaults["voice"]
+
+
 def _apply(
-    cache: _CardCache, payload: dict[str, Any], keys: Iterable[str], seed: bool, form: bool
+    cache: _CardCache, payload: dict[str, Any], keys: Iterable[str], seed: bool, form: bool,
+    tts: bool = False,
 ) -> dict[str, Any]:
     keys = tuple(keys)
     unset = {k for k in (*keys, "seed") if payload.get(k) is None}
     values = cache.values(payload.get("model"), keys)
     if values is not None:
         fill_from_card(payload, values, keys)
+    if tts:
+        _fill_tts_mode(cache, payload)
     if seed and payload.get("seed") is None:  # not card-derived: needs no catalogue
         payload["seed"] = _RANDOM_SEED
     if form:  # multipart fields are strings
@@ -129,7 +154,8 @@ def _wanted(client: Any, payload: dict[str, Any]) -> bool:
 
 
 def fill_payload(
-    client: Any, payload: dict[str, Any], keys: Iterable[str], *, seed: bool = False, form: bool = False
+    client: Any, payload: dict[str, Any], keys: Iterable[str], *, seed: bool = False, form: bool = False,
+    tts: bool = False,
 ) -> dict[str, Any]:
     """Fill unset ``keys`` of a request payload from the model card (sync client).
 
@@ -153,11 +179,12 @@ def fill_payload(
             cache.cards = store
         except Exception:
             cache.failed = True
-    return _apply(cache, payload, keys, seed, form)
+    return _apply(cache, payload, keys, seed, form, tts)
 
 
 async def afill_payload(
-    client: Any, payload: dict[str, Any], keys: Iterable[str], *, seed: bool = False, form: bool = False
+    client: Any, payload: dict[str, Any], keys: Iterable[str], *, seed: bool = False, form: bool = False,
+    tts: bool = False,
 ) -> dict[str, Any]:
     """Async twin of :func:`fill_payload` (uses the async HTTP client)."""
     if not _wanted(client, payload):
@@ -183,4 +210,4 @@ async def afill_payload(
                     cache.cards = store
                 except Exception:
                     cache.failed = True
-    return _apply(cache, payload, keys, seed, form)
+    return _apply(cache, payload, keys, seed, form, tts)
