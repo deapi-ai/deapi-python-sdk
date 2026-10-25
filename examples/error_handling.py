@@ -3,7 +3,7 @@
 Demonstrates how to catch and handle different error types from the SDK.
 
 Usage:
-    export DEAPI_API_KEY="sk-your-api-key"
+    export DEAPI_API_KEY="sk-dp-<id>-<secret>"
     python examples/error_handling.py
 """
 

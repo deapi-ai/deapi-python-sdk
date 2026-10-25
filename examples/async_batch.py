@@ -3,7 +3,7 @@
 Demonstrates submitting multiple jobs concurrently with AsyncDeapiClient.
 
 Usage:
-    export DEAPI_API_KEY="sk-your-api-key"
+    export DEAPI_API_KEY="sk-dp-<id>-<secret>"
     python examples/async_batch.py
 """
 

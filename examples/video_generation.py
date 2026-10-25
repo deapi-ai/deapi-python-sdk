@@ -4,7 +4,7 @@ Demonstrates text-to-video, image-to-video, audio-to-video, video replace,
 upscale, and background removal.
 
 Usage:
-    export DEAPI_API_KEY="sk-your-api-key"
+    export DEAPI_API_KEY="sk-dp-<id>-<secret>"
     python examples/video_generation.py
 """
 
