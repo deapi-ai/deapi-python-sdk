@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deapi-python-sdk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Official Python SDK for DeAPI — distributed AI inference platform"
 readme = "README.md"
 license = "MIT"
