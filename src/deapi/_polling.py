@@ -12,6 +12,16 @@ if TYPE_CHECKING:
     from deapi._client import AsyncHTTPClient, SyncHTTPClient
 
 
+def _timeout_error(request_id: str, max_wait: float) -> JobTimeoutError:
+    exc = JobTimeoutError(
+        f"Job {request_id} did not complete within {max_wait}s. The job is still running on the server; "
+        f"resume waiting with client.jobs.get({request_id!r}).wait() or check it once with "
+        f"client.jobs.status({request_id!r})."
+    )
+    exc.request_id = request_id  # type: ignore[attr-defined]
+    return exc
+
+
 class Job:
     """A submitted job that can be polled for status."""
 
@@ -52,9 +62,7 @@ class Job:
             time.sleep(min(interval, remaining))
             interval = min(interval * backoff_factor, max_interval)
 
-        raise JobTimeoutError(
-            f"Job {self.request_id} did not complete within {max_wait}s"
-        )
+        raise _timeout_error(self.request_id, max_wait)
 
     def is_done(self) -> bool:
         """Check if the job is done. Note: this makes an HTTP request each time."""
@@ -105,9 +113,7 @@ class AsyncJob:
             await asyncio.sleep(min(interval, remaining))
             interval = min(interval * backoff_factor, max_interval)
 
-        raise JobTimeoutError(
-            f"Job {self.request_id} did not complete within {max_wait}s"
-        )
+        raise _timeout_error(self.request_id, max_wait)
 
     async def is_done(self) -> bool:
         """Check if the job is done. Note: this makes an HTTP request each time."""
@@ -119,3 +125,33 @@ class AsyncJob:
 
     def __repr__(self) -> str:
         return f"AsyncJob(request_id={self.request_id!r})"
+
+
+class Jobs:
+    """Resume or inspect jobs by ``request_id`` (e.g. after a :class:`JobTimeoutError`)."""
+
+    def __init__(self, client: SyncHTTPClient) -> None:
+        self._client = client
+
+    def get(self, request_id: str) -> Job:
+        """Return a :class:`Job` handle for an already submitted job (no HTTP request)."""
+        return Job(request_id, self._client, self._client._resolve_endpoint("request_status"))
+
+    def status(self, request_id: str) -> JobResult:
+        """Poll a job once and return its current status."""
+        return self.get(request_id).status()
+
+
+class AsyncJobs:
+    """Async variant of :class:`Jobs`."""
+
+    def __init__(self, client: AsyncHTTPClient) -> None:
+        self._client = client
+
+    def get(self, request_id: str) -> AsyncJob:
+        """Return an :class:`AsyncJob` handle for an already submitted job (no HTTP request)."""
+        return AsyncJob(request_id, self._client, self._client._resolve_endpoint("request_status"))
+
+    async def status(self, request_id: str) -> JobResult:
+        """Poll a job once and return its current status."""
+        return await self.get(request_id).status()
