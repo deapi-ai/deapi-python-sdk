@@ -8,20 +8,29 @@ from deapi._client import AsyncHTTPClient, SyncHTTPClient
 from deapi._config import ClientConfig
 from deapi._exceptions import (
     AccountSuspendedError,
+    ActiveKeyLimitReachedError,
     AuthenticationError,
     DeapiError,
     InsufficientBalanceError,
+    InsufficientPermissionsError,
+    IpNotAllowedError,
     JobTimeoutError,
+    KeyLimitExceededError,
     NetworkError,
     NotFoundError,
+    PayloadTooLargeError,
+    PaymentRequiredError,
+    PermissionDeniedError,
     RateLimitError,
     ServerError,
     ValidationError,
 )
-from deapi._polling import AsyncJob, Job
+from deapi._polling import AsyncJob, AsyncJobs, Job, Jobs
 from deapi._types import InferenceType, JobStatus
 from deapi._version import __version__
-from deapi.types.common import Balance, JobResult, JobSubmission, PriceResult
+from deapi.transcript import Transcript, TranscriptSegment, TranscriptWord, parse_transcript, transcript_output_format
+from deapi.types.common import Balance, JobResult, JobSubmission, ModelInfo, ModelsResponse, PriceResult
+from deapi.types.v1.video import VideoDescription, VideoEvent, parse_video_description
 from deapi.webhook import InvalidSignatureError, WebhookEvent, WebhookEventData, construct_event, verify_signature
 
 
@@ -35,6 +44,7 @@ def _attach_v1_resources_sync(client: DeapiClient) -> None:
     client.embeddings = Embeddings(client._http_client)
     client.prompts = Prompts(client._http_client)
     client.ocr = OCR(client._http_client)
+    client.jobs = Jobs(client._http_client)
 
 
 def _attach_v1_resources_async(client: AsyncDeapiClient) -> None:
@@ -50,10 +60,13 @@ def _attach_v1_resources_async(client: AsyncDeapiClient) -> None:
     client.embeddings = AsyncEmbeddings(client._http_client)
     client.prompts = AsyncPrompts(client._http_client)
     client.ocr = AsyncOCR(client._http_client)
+    client.jobs = AsyncJobs(client._http_client)
 
 
 def _attach_v2_resources_sync(client: DeapiClient) -> None:
-    from deapi.resources.v2 import Audio, Embeddings, Images, Models, OCR, Prompts, Transcription, Video
+    from deapi.resources.v2 import (
+        AccountResource, Audio, Embeddings, Images, KeysResource, Models, OCR, Prompts, Transcription, Video,
+    )
     client.images = Images(client._http_client)
     client.models = Models(client._http_client)
     client.audio = Audio(client._http_client)
@@ -62,11 +75,14 @@ def _attach_v2_resources_sync(client: DeapiClient) -> None:
     client.embeddings = Embeddings(client._http_client)
     client.prompts = Prompts(client._http_client)
     client.ocr = OCR(client._http_client)
+    client.jobs = Jobs(client._http_client)
+    client.account = AccountResource(client._http_client)
+    client.keys = KeysResource(client._http_client)
 
 
 def _attach_v2_resources_async(client: AsyncDeapiClient) -> None:
     from deapi.resources.v2 import (
-        AsyncAudio, AsyncEmbeddings, AsyncImages, AsyncModels,
+        AsyncAccountResource, AsyncKeysResource, AsyncAudio, AsyncEmbeddings, AsyncImages, AsyncModels,
         AsyncOCR, AsyncPrompts, AsyncTranscription, AsyncVideo,
     )
     client.images = AsyncImages(client._http_client)
@@ -77,6 +93,9 @@ def _attach_v2_resources_async(client: AsyncDeapiClient) -> None:
     client.embeddings = AsyncEmbeddings(client._http_client)
     client.prompts = AsyncPrompts(client._http_client)
     client.ocr = AsyncOCR(client._http_client)
+    client.jobs = AsyncJobs(client._http_client)
+    client.account = AsyncAccountResource(client._http_client)
+    client.keys = AsyncKeysResource(client._http_client)
 
 
 _RESOURCE_LOADERS: dict[str, dict[str, Any]] = {
@@ -93,6 +112,11 @@ _RESOURCE_LOADERS: dict[str, dict[str, Any]] = {
 
 class DeapiClient:
     """Synchronous DeAPI client.
+
+    ``fill_model_defaults`` (default on; env ``DEAPI_FILL_MODEL_DEFAULTS=0`` disables): generation
+    parameters you leave unset (width, height, steps, frames, fps, lang, ...) are taken from the
+    model card's ``info.defaults`` (one catalogue request per client, cached), and ``seed`` defaults
+    to -1 (random) where the API requires it. Pass ``False`` to send exactly what you set.
 
     Usage::
 
@@ -115,6 +139,9 @@ class DeapiClient:
     embeddings: Any
     prompts: Any
     ocr: Any
+    jobs: Any
+    account: Any  # API v2 only
+    keys: Any  # API v2 only
 
     def __init__(
         self,
@@ -124,6 +151,7 @@ class DeapiClient:
         timeout: float | None = None,
         max_retries: int | None = None,
         api_version: str | None = None,
+        fill_model_defaults: bool | None = None,
     ) -> None:
         self._config = ClientConfig.from_env(
             api_key=api_key,
@@ -131,6 +159,7 @@ class DeapiClient:
             timeout=timeout,
             max_retries=max_retries,
             api_version=api_version,
+            fill_model_defaults=fill_model_defaults,
         )
         self._http_client = SyncHTTPClient(self._config)
         self._attach_resources()
@@ -162,6 +191,8 @@ class DeapiClient:
 class AsyncDeapiClient:
     """Asynchronous DeAPI client.
 
+    Takes the same ``fill_model_defaults`` option as :class:`DeapiClient`.
+
     Usage::
 
         async with AsyncDeapiClient(api_key="sk-...") as client:
@@ -178,6 +209,9 @@ class AsyncDeapiClient:
     embeddings: Any
     prompts: Any
     ocr: Any
+    jobs: Any
+    account: Any  # API v2 only
+    keys: Any  # API v2 only
 
     def __init__(
         self,
@@ -187,6 +221,7 @@ class AsyncDeapiClient:
         timeout: float | None = None,
         max_retries: int | None = None,
         api_version: str | None = None,
+        fill_model_defaults: bool | None = None,
     ) -> None:
         self._config = ClientConfig.from_env(
             api_key=api_key,
@@ -194,6 +229,7 @@ class AsyncDeapiClient:
             timeout=timeout,
             max_retries=max_retries,
             api_version=api_version,
+            fill_model_defaults=fill_model_defaults,
         )
         self._http_client = AsyncHTTPClient(self._config)
         self._attach_resources()
@@ -229,20 +265,40 @@ __all__ = [
     # Jobs
     "Job",
     "AsyncJob",
+    "AsyncJobs",
+    "Jobs",
     # Types
     "Balance",
     "InferenceType",
     "JobResult",
     "JobStatus",
     "JobSubmission",
+    "ModelInfo",
+    "ModelsResponse",
     "PriceResult",
+    # Results
+    "Transcript",
+    "TranscriptSegment",
+    "TranscriptWord",
+    "VideoDescription",
+    "VideoEvent",
+    "parse_transcript",
+    "parse_video_description",
+    "transcript_output_format",
     # Exceptions
     "AccountSuspendedError",
+    "ActiveKeyLimitReachedError",
     "AuthenticationError",
     "NetworkError",
     "DeapiError",
     "InsufficientBalanceError",
+    "InsufficientPermissionsError",
+    "IpNotAllowedError",
     "JobTimeoutError",
+    "KeyLimitExceededError",
+    "PayloadTooLargeError",
+    "PaymentRequiredError",
+    "PermissionDeniedError",
     "NotFoundError",
     "RateLimitError",
     "ServerError",

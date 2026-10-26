@@ -104,6 +104,8 @@ ENDPOINTS: dict[str, dict[str, str]] = {
         "aud2video_price": "videos/audio-syncs/price",
         "vid_replace": "videos/replacements",
         "vid_replace_price": "videos/replacements/price",
+        "vid_description": "videos/descriptions",
+        "vid_description_price": "videos/descriptions/price",
         # Transcription (unified — single endpoint replaces all v1 transcription routes)
         "transcribe": "audio/transcriptions",
         "transcribe_price": "audio/transcriptions/price",
@@ -116,8 +118,17 @@ ENDPOINTS: dict[str, dict[str, str]] = {
         # Prompts (unified enhancer — replaces all v1 prompt booster routes)
         "prompts_enhance": "prompts/enhancements",
         "prompts_enhance_price": "prompts/enhancements/price",
-        # Account
+        # Account (ADMIN key only — an API-role key gets 403 insufficient_permissions)
         "balance": "account/balance",
+        "account": "account",
+        "account_usage": "account/usage",
+        "account_payments": "account/payments",
+        # Keys — the calling key (any role)
+        "key": "key",
+        "key_usage": "key/usage",
+        # Keys — account key management (ADMIN key only); per-key paths are keys/{id}
+        "keys": "keys",
+        # Catalogue and jobs
         "models": "models",
         "request_status": "jobs",
     },

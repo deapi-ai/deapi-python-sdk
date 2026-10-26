@@ -18,7 +18,7 @@ SUBMIT_RESPONSE = {"data": {"request_id": "job-123"}}
 class TestPolling:
     @respx.mock
     def test_job_status_single_poll(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False)
         respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
@@ -41,7 +41,7 @@ class TestPolling:
 
     @respx.mock
     def test_job_wait_polls_until_done(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False)
         respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
@@ -67,7 +67,7 @@ class TestPolling:
 
     @respx.mock
     def test_job_wait_returns_on_error(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False)
         respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
@@ -80,7 +80,7 @@ class TestPolling:
 
     @respx.mock
     def test_job_wait_timeout(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False)
         respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
@@ -93,7 +93,7 @@ class TestPolling:
 
     @respx.mock
     def test_job_repr(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False)
         respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
@@ -104,7 +104,7 @@ class TestPolling:
 class TestModels:
     @respx.mock
     def test_list_models(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False)
         respx.get(f"{TEST_BASE_URL}/api/v1/client/models").mock(
             return_value=httpx.Response(200, json={
                 "data": [
@@ -121,7 +121,7 @@ class TestModels:
 
     @respx.mock
     def test_list_models_with_filter(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False)
         route = respx.get(f"{TEST_BASE_URL}/api/v1/client/models").mock(
             return_value=httpx.Response(200, json={
                 "data": [{"name": "sdxl", "slug": "sdxl", "inference_types": ["txt2img"], "info": {}}],
@@ -132,3 +132,76 @@ class TestModels:
         client.models.list(inference_types=["txt2img", "img2img"])
         request = route.calls.last.request
         assert "filter%5Binference_types%5D=txt2img%2Cimg2img" in str(request.url)
+
+
+V2_STATUS_URL = f"{TEST_BASE_URL}/api/v2/jobs"
+
+
+class TestJobResultFields:
+    def test_new_fields_and_extra(self) -> None:
+        from deapi.types.common import JobResult
+
+        r = JobResult.model_validate({
+            "status": "error", "progress": None, "error_code": "PROCESSING_ERROR", "error_reason": "boom",
+            "retryable": True, "refunded": True, "failed_at": "2026-01-01T00:00:00Z",
+            "price": {"amount": 0.02, "is_estimated": False}, "metadata": {"a": 1}, "prompt_boosted": True,
+            "prompt_boost": {"prompt": "p2", "prompt_original": "p", "negative_prompt": None},
+            "reference_labels": ["a"], "brand_new": 7,
+        })
+        assert r.progress is None
+        assert r.error_code == "PROCESSING_ERROR" and r.retryable is True and r.refunded is True
+        assert r.price["amount"] == 0.02
+        assert r.prompt_boost.prompt_original == "p"
+        assert r.brand_new == 7
+
+    def test_minimal_still_works(self) -> None:
+        from deapi.types.common import JobResult
+
+        r = JobResult.model_validate({"status": "pending"})
+        assert r.progress == 0.0 and r.error_code is None and r.prompt_boost is None
+
+    def test_price_and_balance_extra(self) -> None:
+        from deapi.types.common import Balance, PriceResult
+
+        p = PriceResult.model_validate({"price": 0.1, "is_estimated": True, "estimate_basis": "model_history", "x": 1})
+        assert p.is_estimated is True and p.estimate_basis == "model_history" and p.x == 1
+        assert PriceResult.model_validate({"price": 0.1}).is_estimated is None
+        # The spec requires nothing: an unavailable estimate may carry no price.
+        assert PriceResult.model_validate({"is_estimated": True, "estimate_basis": "unavailable"}).price is None
+        assert Balance.model_validate({"balance": 1.0, "currency": "USD"}).currency == "USD"
+
+
+class TestResume:
+    @respx.mock
+    def test_timeout_carries_request_id_and_hint(self) -> None:
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v2")
+        respx.get(f"{V2_STATUS_URL}/job-9").mock(
+            return_value=httpx.Response(200, json={"data": {"status": "processing", "progress": 1}})
+        )
+        job = client.jobs.get("job-9")
+        with pytest.raises(JobTimeoutError) as ei:
+            job.wait(poll_interval=0.01, max_wait=0.05)
+        assert ei.value.request_id == "job-9"
+        assert "still running" in str(ei.value) and "client.jobs" in str(ei.value)
+
+    @respx.mock
+    def test_jobs_get_and_status_sync(self) -> None:
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v2")
+        respx.get(f"{V2_STATUS_URL}/job-9").mock(
+            return_value=httpx.Response(200, json={"data": {"status": "done", "result_url": "https://x/y.png"}})
+        )
+        job = client.jobs.get("job-9")
+        assert job.request_id == "job-9"
+        assert job.wait(poll_interval=0.01).result_url == "https://x/y.png"
+        assert client.jobs.status("job-9").status == JobStatus.DONE
+
+    @respx.mock
+    async def test_jobs_async(self, async_client_v2) -> None:  # type: ignore[no-untyped-def]
+        respx.get(f"{V2_STATUS_URL}/job-9").mock(
+            return_value=httpx.Response(200, json={"data": {"status": "processing", "progress": None}})
+        )
+        job = async_client_v2.jobs.get("job-9")
+        assert (await async_client_v2.jobs.status("job-9")).progress is None
+        with pytest.raises(JobTimeoutError) as ei:
+            await job.wait(poll_interval=0.01, max_wait=0.05)
+        assert ei.value.request_id == "job-9"

@@ -54,7 +54,7 @@ async def live_async_client() -> AsyncDeapiClient:
 
 def _find_model(client: DeapiClient, inference_type: str) -> ModelInfo | None:
     """Find the first active model supporting a given inference type."""
-    models = client.models.list(inference_types=[inference_type], per_page=5)
+    models = client.models.list(inference_types=[inference_type], limit=5)
     return models.data[0] if models.data else None
 
 
@@ -102,7 +102,7 @@ class TestAccountIntegration:
 
     @requires_api_key
     def test_models_list(self, live_client: DeapiClient) -> None:
-        models = live_client.models.list(per_page=5)
+        models = live_client.models.list(limit=5)
         assert len(models.data) > 0
         assert models.meta.current_page == 1
         for model in models.data:
@@ -112,7 +112,7 @@ class TestAccountIntegration:
 
     @requires_api_key
     def test_models_filter_by_inference_type(self, live_client: DeapiClient) -> None:
-        models = live_client.models.list(inference_types=["txt2img"], per_page=5)
+        models = live_client.models.list(inference_types=["txt2img"], limit=5)
         assert len(models.data) > 0
         for model in models.data:
             assert "txt2img" in model.inference_types
@@ -120,7 +120,7 @@ class TestAccountIntegration:
     @requires_api_key
     def test_model_has_info(self, live_client: DeapiClient) -> None:
         """Models should include info with at least limits."""
-        models = live_client.models.list(per_page=5)
+        models = live_client.models.list(limit=5)
         models_with_info = [m for m in models.data if m.info]
         assert len(models_with_info) > 0
         for model in models_with_info:
@@ -260,14 +260,14 @@ class TestAsyncIntegration:
 
     @requires_api_key
     async def test_async_models_list(self, live_async_client: AsyncDeapiClient) -> None:
-        models = await live_async_client.models.list(per_page=5)
+        models = await live_async_client.models.list(limit=5)
         assert len(models.data) > 0
 
     @requires_api_key
     async def test_async_generate_price(self, live_async_client: AsyncDeapiClient) -> None:
         """Discover a txt2img model and check its price."""
         models = await live_async_client.models.list(
-            inference_types=["txt2img"], per_page=1,
+            inference_types=["txt2img"], limit=1,
         )
         assert len(models.data) > 0, "No txt2img model available"
         model = models.data[0]

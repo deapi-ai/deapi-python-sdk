@@ -14,24 +14,24 @@ TEST_API_KEY = "test-key-123"
 # Existing v1 test files use these fixture names.
 @pytest.fixture
 def client() -> Generator[DeapiClient, None, None]:
-    with DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1") as c:
+    with DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False) as c:
         yield c
 
 
 @pytest.fixture
 async def async_client() -> AsyncGenerator[AsyncDeapiClient, None]:
-    async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1") as c:
+    async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False) as c:
         yield c
 
 
 # v2 client — for v2 test modules.
 @pytest.fixture
 def client_v2() -> Generator[DeapiClient, None, None]:
-    with DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v2") as c:
+    with DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v2", fill_model_defaults=False) as c:
         yield c
 
 
 @pytest.fixture
 async def async_client_v2() -> AsyncGenerator[AsyncDeapiClient, None]:
-    async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v2") as c:
+    async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v2", fill_model_defaults=False) as c:
         yield c

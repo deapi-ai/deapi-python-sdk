@@ -3,7 +3,7 @@
 Demonstrates TTS synthesis (with voice options) and music composition.
 
 Usage:
-    export DEAPI_API_KEY="sk-your-api-key"
+    export DEAPI_API_KEY="sk-dp-<id>-<secret>"
     python examples/tts_and_audio.py
 """
 

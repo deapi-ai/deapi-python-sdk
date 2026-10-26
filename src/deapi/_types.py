@@ -27,3 +27,6 @@ class InferenceType(str, Enum):
     IMAGE_REMOVE_BG = "img-rmbg"
     VIDEO_UPSCALE = "vid-upscale"
     VIDEO_REMOVE_BG = "vid-rmbg"
+    AUDIO2VIDEO = "audio2video"
+    VIDEO2DESC = "video2desc"
+    VIDEO_FILE2DESC = "video_file2desc"

@@ -60,3 +60,33 @@ class TestExceptionHierarchy:
         exc = DeapiError("simple error")
         assert exc.status_code is None
         assert exc.body is None
+
+
+class TestNewExceptions:
+    def test_hierarchy(self) -> None:
+        from deapi import (
+            ActiveKeyLimitReachedError,
+            InsufficientPermissionsError,
+            IpNotAllowedError,
+            KeyLimitExceededError,
+            PayloadTooLargeError,
+            PaymentRequiredError,
+            PermissionDeniedError,
+        )
+
+        assert issubclass(KeyLimitExceededError, PaymentRequiredError)
+        assert issubclass(AccountSuspendedError, PermissionDeniedError)
+        assert issubclass(IpNotAllowedError, PermissionDeniedError)
+        assert issubclass(InsufficientPermissionsError, PermissionDeniedError)
+        assert not issubclass(IpNotAllowedError, AccountSuspendedError)
+        assert issubclass(ActiveKeyLimitReachedError, ValidationError)
+        assert issubclass(PayloadTooLargeError, DeapiError)
+
+    def test_code_attribute(self) -> None:
+        assert DeapiError("x").code is None
+        assert DeapiError("x", code="foo").code == "foo"
+        assert DeapiError("x", body={"code": "bar"}).code == "bar"
+
+    def test_job_timeout_request_id(self) -> None:
+        assert JobTimeoutError("t").request_id is None
+        assert JobTimeoutError("t", request_id="r1").request_id == "r1"

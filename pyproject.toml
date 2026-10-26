@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deapi-python-sdk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Official Python SDK for DeAPI — distributed AI inference platform"
 readme = "README.md"
 license = "MIT"
@@ -27,7 +27,9 @@ classifiers = [
 ]
 dependencies = [
     "httpx>=0.25.0,<1.0.0",
-    "pydantic>=2.0.0,<3.0.0",
+    "pydantic>=2.6.0,<3.0.0",
+    # Lets pydantic evaluate `X | None` annotations on Python 3.9.
+    "eval_type_backport>=0.2.0; python_version < '3.10'",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +43,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://deapi.ai"
-Documentation = "https://docs.deapi.ai/sdk/python"
+Documentation = "https://docs.deapi.ai/other/sdks-and-integrations"
 Repository = "https://github.com/deapi-ai/deapi-python-sdk"
 
 [tool.hatch.build.targets.wheel]
@@ -61,6 +63,7 @@ strict = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["src"]
 markers = [
     "integration: tests that run against the production API (require DEAPI_API_KEY)",
 ]

@@ -3,7 +3,7 @@
 Demonstrates text-to-image, image-to-image, upscale, and background removal.
 
 Usage:
-    export DEAPI_API_KEY="sk-your-api-key"
+    export DEAPI_API_KEY="sk-dp-<id>-<secret>"
     python examples/basic_image.py
 """
 
