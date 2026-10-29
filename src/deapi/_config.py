@@ -15,7 +15,7 @@ _DEFAULT_API_VERSION = "v2"
 
 @dataclass(frozen=True)
 class ClientConfig:
-    api_key: str
+    api_key: str = field(repr=False)
     base_url: str = _DEFAULT_BASE_URL
     timeout: float = _DEFAULT_TIMEOUT
     max_retries: int = _DEFAULT_MAX_RETRIES

@@ -6,8 +6,8 @@ from typing import Any
 from deapi._client import AsyncHTTPClient, SyncHTTPClient
 from deapi.types.common import ModelInfo, ModelsResponse
 
-# Server-side page-size cap for GET /models (larger values are clamped, not rejected).
-MAX_PAGE_SIZE = 100
+# Server-side page-size cap for GET /models (``limit`` is capped at 50 by the API).
+MAX_PAGE_SIZE = 50
 
 
 def _build_params(
@@ -38,8 +38,14 @@ def _build_params(
     return params
 
 
-def _last_page(resp: ModelsResponse) -> int:
-    return (resp.meta.last_page if resp.meta and resp.meta.last_page else None) or 1
+def _has_next(resp: ModelsResponse, page: int) -> bool:
+    """``meta.last_page`` decides; without it, a full page means more may follow (never stop on a short one early)."""
+    if not resp.data:
+        return False
+    last = resp.meta.last_page if resp.meta else None
+    if last:
+        return page < last
+    return len(resp.data) >= MAX_PAGE_SIZE
 
 
 def _find(models: list[ModelInfo], slug: str) -> ModelInfo | None:
@@ -67,7 +73,7 @@ class Models:
     ) -> ModelsResponse:
         """List one page of available models with optional filtering.
 
-        ``limit`` is the page size (default 50, server cap 100). ``per_page`` is a deprecated alias for ``limit``.
+        ``limit`` is the page size (default 50, server cap 50). ``per_page`` is a deprecated alias for ``limit``.
         ``tags`` filters by model tag (``new``, ``beta``, ...); ``sort`` is one of ``id``, ``name``,
         ``created_at``, ``updated_at``, optionally prefixed with ``-`` (default ``-created_at``).
         Check ``response.meta.last_page`` to know whether more pages exist, or use :meth:`list_all`.
@@ -80,7 +86,7 @@ class Models:
     def list_all(
         self, *, inference_types: list[str] | None = None, tags: list[str] | None = None, sort: str | None = None
     ) -> list[ModelInfo]:
-        """Fetch every page (limit=100) and return all models."""
+        """Fetch every page (limit=50) and return all models."""
         models: list[ModelInfo] = []
         page = 1
         while True:
@@ -89,7 +95,7 @@ class Models:
                 tags=tags, sort=sort,
             )
             models.extend(resp.data)
-            if page >= _last_page(resp) or not resp.data:
+            if not _has_next(resp, page):
                 return models
             page += 1
 
@@ -116,7 +122,7 @@ class AsyncModels:
     ) -> ModelsResponse:
         """List one page of available models with optional filtering.
 
-        ``limit`` is the page size (default 50, server cap 100). ``per_page`` is a deprecated alias for ``limit``.
+        ``limit`` is the page size (default 50, server cap 50). ``per_page`` is a deprecated alias for ``limit``.
         ``tags`` filters by model tag (``new``, ``beta``, ...); ``sort`` is one of ``id``, ``name``,
         ``created_at``, ``updated_at``, optionally prefixed with ``-`` (default ``-created_at``).
         """
@@ -128,7 +134,7 @@ class AsyncModels:
     async def list_all(
         self, *, inference_types: list[str] | None = None, tags: list[str] | None = None, sort: str | None = None
     ) -> list[ModelInfo]:
-        """Fetch every page (limit=100) and return all models."""
+        """Fetch every page (limit=50) and return all models."""
         models: list[ModelInfo] = []
         page = 1
         while True:
@@ -137,7 +143,7 @@ class AsyncModels:
                 tags=tags, sort=sort,
             )
             models.extend(resp.data)
-            if page >= _last_page(resp) or not resp.data:
+            if not _has_next(resp, page):
                 return models
             page += 1
 

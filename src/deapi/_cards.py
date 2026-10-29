@@ -2,9 +2,12 @@
 
 The API still requires several card-driven parameters (width, height, seed, steps, ...),
 so when the caller leaves one unset it is taken from the model's card. The whole
-catalogue is fetched once per HTTP client (lazily, on the first call that needs it) and
-cached. Defaulting never raises: if the catalogue cannot be fetched, or the model is not
-in it, no card value is filled and the API answers with its normal validation error.
+catalogue is fetched lazily (on the first call that needs it) and cached per HTTP client
+for ``_CARD_TTL`` seconds; a lookup of a slug missing from the cache refreshes it (at most
+once per ``_MISS_COOLDOWN`` seconds). Defaulting never raises: if the catalogue cannot be
+fetched, or the model is not in it, no card value is filled and the API answers with its
+normal validation error. A failed fetch (any error, auth errors included, as they are
+per-request and may be fixed later) is logged and retried after ``_RETRY_COOLDOWN`` seconds.
 
 When the card has no default for a key but its ``limits`` pin it (``min_X == max_X``), that
 value is used; nothing is derived when min and max differ.
@@ -16,17 +19,19 @@ filled; ``seed`` falls back to ``-1`` (random) where the API requires it, even w
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
-import warnings
 from typing import Any, Iterable
 
-from deapi._exceptions import NetworkError, RateLimitError, ServerError
+logger = logging.getLogger("deapi")
 
-_PAGE_SIZE = 100
+_PAGE_SIZE = 50  # the API caps ``limit`` at 50
 _MAX_PAGES = 50  # safety bound on pagination
 _RANDOM_SEED = -1
-_RETRY_COOLDOWN = 60.0  # seconds before a transient catalogue failure is retried
+_RETRY_COOLDOWN = 60.0  # seconds before a failed catalogue fetch is retried
+_CARD_TTL = 300.0  # seconds before the cached catalogue is refreshed
+_MISS_COOLDOWN = 30.0  # min seconds between catalogue refreshes triggered by an unknown slug
 _CREATE_LOCK = threading.Lock()  # guards creation of a client's cache object
 
 # Fillable keys per endpoint family (spec-required card-driven params; names match the card).
@@ -63,32 +68,39 @@ def fill_from_card(
 
 
 class _CardCache:
-    """slug -> ``info`` dict for one HTTP client; ``failed`` after an unsuccessful fetch."""
+    """slug -> ``info`` dict for one HTTP client, with a TTL and refresh on a slug miss."""
 
     def __init__(self) -> None:
         self.cards: dict[str, dict[str, Any]] | None = None
-        self.failed = False  # permanent failure: never retried
-        self.retry_at = 0.0  # monotonic time before which a transient failure is not retried
+        self.fetched_at = 0.0  # monotonic time of the last successful fetch
+        self.retry_at = 0.0  # monotonic time before which a failed fetch is not retried
         self.tlock = threading.Lock()  # serialises the sync fetch
         self.lock: Any = None  # asyncio.Lock, created lazily inside a running loop
         self.lock_loop: Any = None  # the loop ``lock`` belongs to
 
-    def needs_fetch(self) -> bool:
-        return self.cards is None and not self.failed and time.monotonic() >= self.retry_at
+    def needs_fetch(self, model: Any = None) -> bool:
+        """True when the catalogue is absent, older than the TTL, or ``model`` is not in it."""
+        now = time.monotonic()
+        if now < self.retry_at:
+            return False
+        if self.cards is None or now - self.fetched_at >= _CARD_TTL:
+            return True
+        return model is not None and model not in self.cards and now - self.fetched_at >= _MISS_COOLDOWN
+
+    def record_success(self, cards: dict[str, dict[str, Any]]) -> None:
+        self.cards = cards
+        self.fetched_at = time.monotonic()
 
     def record_failure(self, exc: Exception) -> None:
-        """Remember a failed fetch: permanent errors for good, transient ones until a cooldown ends."""
-        transient = isinstance(exc, (RateLimitError, ServerError, NetworkError))
-        if transient:
-            self.retry_at = time.monotonic() + _RETRY_COOLDOWN
-        else:
-            self.failed = True
-        warnings.warn(
-            f"Could not load the model catalogue ({type(exc).__name__}: {exc}); model card defaults "
-            "were not applied, so unset parameters (width, height, steps, ...) will be sent empty"
-            + (f" (will retry in {int(_RETRY_COOLDOWN)} s)." if transient else "."),
-            RuntimeWarning,
-            stacklevel=4,
+        """Log a failed fetch and hold off retrying for a cooldown; any stale cards are kept."""
+        self.retry_at = time.monotonic() + _RETRY_COOLDOWN
+        logger.warning(
+            "Could not load the model catalogue (%s: %s); model card defaults %s "
+            "(will retry in %d s).",
+            type(exc).__name__, exc,
+            "may be stale" if self.cards is not None else
+            "were not applied, so unset parameters (width, height, steps, ...) will be sent empty",
+            int(_RETRY_COOLDOWN),
         )
 
     def values(self, model: Any, keys: Iterable[str]) -> dict[str, Any] | None:
@@ -97,7 +109,7 @@ class _CardCache:
         A limit pins a value when ``min_X == max_X`` (e.g. fixed steps or guidance). Returns
         ``None`` when the model/catalogue is unknown.
         """
-        if self.failed or self.cards is None or model not in self.cards:
+        if self.cards is None or model not in self.cards:
             return None
         info = self.cards[model]
         defaults = info.get("defaults")
@@ -132,12 +144,6 @@ def _ingest(models: Any, store: dict[str, dict[str, Any]]) -> None:
             store[slug] = info if isinstance(info, dict) else {}
 
 
-def _last_page(resp: Any) -> int:
-    meta = resp.get("meta") if isinstance(resp, dict) else None
-    last = meta.get("last_page") if isinstance(meta, dict) else None
-    return last if isinstance(last, int) and last > 0 else 1
-
-
 def _fill_tts_mode(cache: _CardCache, payload: dict[str, Any]) -> None:
     """Fill ``mode`` / ``voice`` of a TTS request from the model card.
 
@@ -145,7 +151,7 @@ def _fill_tts_mode(cache: _CardCache, payload: dict[str, Any]) -> None:
     voice-design or voice-clone only model fails unless the mode is named, and a custom-voice
     model fails without a ``voice``. Explicit values always win.
     """
-    if cache.failed or cache.cards is None or payload.get("model") not in cache.cards:
+    if cache.cards is None or payload.get("model") not in cache.cards:
         return
     info = cache.cards[payload["model"]]
     features = info.get("features") if isinstance(info.get("features"), dict) else {}
@@ -191,13 +197,28 @@ def _needs_card(payload: dict[str, Any], keys: Iterable[str], tts: bool) -> bool
     return tts and (payload.get("mode") is None or payload.get("voice") is None)
 
 
+def _has_next(resp: Any, page: int) -> bool:
+    """Whether another page follows ``page``.
+
+    ``meta.last_page`` is authoritative when present. Without it the only safe signal is a full
+    page (``_PAGE_SIZE`` items): a shorter one is the last. Never stop on a short page when
+    ``last_page`` says more exist, or the catalogue comes back incomplete.
+    """
+    if not resp["data"] or page >= _MAX_PAGES:
+        return False
+    meta = resp.get("meta")
+    if isinstance(meta, dict) and isinstance(meta.get("last_page"), int) and meta["last_page"] > 0:
+        return page < meta["last_page"]
+    return len(resp["data"]) >= _PAGE_SIZE
+
+
 def _fetch_sync(client: Any) -> dict[str, dict[str, Any]]:
     store: dict[str, dict[str, Any]] = {}
     page = 1
     while True:
         resp = client.get(client._resolve_endpoint("models"), params={"limit": _PAGE_SIZE, "page": page})
         _ingest(resp["data"], store)
-        if page >= min(_last_page(resp), _MAX_PAGES) or not resp["data"]:
+        if not _has_next(resp, page):
             return store
         page += 1
 
@@ -208,9 +229,54 @@ async def _fetch_async(client: Any) -> dict[str, dict[str, Any]]:
     while True:
         resp = await client.get(client._resolve_endpoint("models"), params={"limit": _PAGE_SIZE, "page": page})
         _ingest(resp["data"], store)
-        if page >= min(_last_page(resp), _MAX_PAGES) or not resp["data"]:
+        if not _has_next(resp, page):
             return store
         page += 1
+
+
+def _ensure_sync(client: Any, model: Any) -> _CardCache:
+    cache = _cache(client)
+    if cache.needs_fetch(model):
+        with cache.tlock:
+            if cache.needs_fetch(model):
+                try:
+                    cache.record_success(_fetch_sync(client))
+                except Exception as exc:
+                    cache.record_failure(exc)
+    return cache
+
+
+async def _ensure_async(client: Any, model: Any) -> _CardCache:
+    cache = _cache(client)
+    if cache.needs_fetch(model):
+        import asyncio
+
+        loop = asyncio.get_running_loop()
+        if cache.lock is None or cache.lock_loop is not loop:  # an asyncio.Lock is bound to one loop
+            cache.lock, cache.lock_loop = asyncio.Lock(), loop
+        async with cache.lock:
+            if cache.needs_fetch(model):
+                try:
+                    cache.record_success(await _fetch_async(client))
+                except Exception as exc:
+                    cache.record_failure(exc)
+    return cache
+
+
+def get_card(client: Any, slug: str) -> dict[str, Any] | None:
+    """The model's card (``info`` dict) from the cached catalogue, or ``None`` if unknown.
+
+    Loads the catalogue on first use, refreshes it after the TTL and when ``slug`` is missing.
+    ``client`` is the sync HTTP client (``DeapiClient._http_client``).
+    """
+    cache = _ensure_sync(client, slug)
+    return cache.cards.get(slug) if cache.cards is not None else None
+
+
+async def aget_card(client: Any, slug: str) -> dict[str, Any] | None:
+    """Async twin of :func:`get_card`."""
+    cache = await _ensure_async(client, slug)
+    return cache.cards.get(slug) if cache.cards is not None else None
 
 
 def fill_payload(
@@ -225,14 +291,7 @@ def fill_payload(
     if not _wanted(client, payload):
         return payload
     keys = tuple(keys)
-    cache = _cache(client)
-    if cache.needs_fetch() and _needs_card(payload, keys, tts):
-        with cache.tlock:
-            if cache.needs_fetch():
-                try:
-                    cache.cards = _fetch_sync(client)
-                except Exception as exc:
-                    cache.record_failure(exc)
+    cache = _ensure_sync(client, payload.get("model")) if _needs_card(payload, keys, tts) else _cache(client)
     return _apply(cache, payload, keys, seed, form, tts)
 
 
@@ -244,17 +303,5 @@ async def afill_payload(
     if not _wanted(client, payload):
         return payload
     keys = tuple(keys)
-    cache = _cache(client)
-    if cache.needs_fetch() and _needs_card(payload, keys, tts):
-        import asyncio
-
-        loop = asyncio.get_running_loop()
-        if cache.lock is None or cache.lock_loop is not loop:  # an asyncio.Lock is bound to one loop
-            cache.lock, cache.lock_loop = asyncio.Lock(), loop
-        async with cache.lock:
-            if cache.needs_fetch():
-                try:
-                    cache.cards = await _fetch_async(client)
-                except Exception as exc:
-                    cache.record_failure(exc)
+    cache = await _ensure_async(client, payload.get("model")) if _needs_card(payload, keys, tts) else _cache(client)
     return _apply(cache, payload, keys, seed, form, tts)
