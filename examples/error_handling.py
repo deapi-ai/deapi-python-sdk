@@ -7,10 +7,10 @@ Usage:
     python examples/error_handling.py
 """
 
-from deapi import (
-    DeapiClient,
+from deapi_sdk import (
     AccountSuspendedError,
     AuthenticationError,
+    DeapiClient,
     DeapiError,
     InsufficientBalanceError,
     InsufficientPermissionsError,

@@ -1,6 +1,6 @@
 # DeAPI Python SDK — API Reference
 
-Reference for the classes, methods and types in the `deapi` package. It describes API **v2** (the
+Reference for the classes, methods and types in the `deapi_sdk` package. It describes API **v2** (the
 default). The HTTP API itself is documented at <https://docs.deapi.ai>.
 
 Install: `pip install git+https://github.com/deapi-ai/deapi-python-sdk.git` (not on PyPI yet;
@@ -34,7 +34,7 @@ Install: `pip install git+https://github.com/deapi-ai/deapi-python-sdk.git` (not
 ### `DeapiClient`
 
 ```python
-from deapi import DeapiClient
+from deapi_sdk import DeapiClient
 
 client = DeapiClient(
     *,
@@ -69,7 +69,7 @@ with DeapiClient() as client:
 Same API surface, every method is `async`.
 
 ```python
-from deapi import AsyncDeapiClient
+from deapi_sdk import AsyncDeapiClient
 
 async with AsyncDeapiClient() as client:
     balance = await client.balance()
@@ -386,8 +386,8 @@ Uses the inline `result` if present, otherwise downloads `result_url` with a pla
 | `"json"` | `WhisperLargeV3Ct2` | Always a JSON document: `text`, `language`, `segments` (`start`, `end`, `speaker`, `words`) |
 | `null` | `WhisperLargeV3` | Plain text; timestamps inline (`[0:50 - 1:49] ...`) when requested |
 
-`deapi.parse_transcript(raw, output_format=None)` does the parsing without a client and never
-raises. `deapi.transcript_output_format(model_card)` reads the card field.
+`deapi_sdk.parse_transcript(raw, output_format=None)` does the parsing without a client and never
+raises. `deapi_sdk.transcript_output_format(model_card)` reads the card field.
 
 ```python
 class Transcript(BaseModel):
@@ -609,7 +609,7 @@ class InferenceType(str, Enum):  TXT2IMG, IMG2IMG, TXT2AUDIO, TXT2MUSIC, ...   #
 
 ## Exceptions
 
-Import everything from the top-level package: `from deapi import ...`.
+Import everything from the top-level package: `from deapi_sdk import ...`.
 
 ```
 DeapiError                              # .message  .status_code  .body  .code
@@ -681,7 +681,7 @@ check your jobs before resubmitting.
 ## Webhook Utilities
 
 ```python
-from deapi.webhook import verify_signature, construct_event, InvalidSignatureError
+from deapi_sdk.webhook import verify_signature, construct_event, InvalidSignatureError
 ```
 
 ### `verify_signature()`

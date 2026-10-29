@@ -236,7 +236,7 @@ for seg in transcript.segments:
 `WhisperLargeV3Ct2`) always return a JSON document (`text`, `language`, `segments` with
 `start`/`end`/`speaker`/`words`). Models with `output_format: null` (for example `WhisperLargeV3`)
 return plain text with timestamps inline. `client.transcription.get_transcript(result)` (or
-`deapi.parse_transcript(raw)`) handles both and returns a `Transcript` whose `format` is `"json"` or
+`deapi_sdk.parse_transcript(raw)`) handles both and returns a `Transcript` whose `format` is `"json"` or
 `"text"` (`segments` is empty for text). Result URLs are downloaded without your API key.
 
 ### Embeddings and OCR

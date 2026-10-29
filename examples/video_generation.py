@@ -8,7 +8,7 @@ Usage:
     python examples/video_generation.py
 """
 
-from deapi import DeapiClient
+from deapi_sdk import DeapiClient
 
 client = DeapiClient()
 

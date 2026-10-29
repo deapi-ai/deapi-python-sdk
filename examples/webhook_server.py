@@ -14,9 +14,9 @@ For production, use a proper WSGI server like gunicorn:
 
 import os
 
-from flask import Flask, Request, jsonify, request
+from flask import Flask, jsonify, request
 
-from deapi.webhook import InvalidSignatureError, construct_event
+from deapi_sdk.webhook import InvalidSignatureError, construct_event
 
 app = Flask(__name__)
 WEBHOOK_SECRET = os.environ.get("DEAPI_WEBHOOK_SECRET", "")
@@ -76,7 +76,7 @@ if __name__ == "__main__":
 # If you prefer FastAPI, here's the equivalent:
 #
 # from fastapi import FastAPI, Request, HTTPException
-# from deapi.webhook import construct_event, InvalidSignatureError
+# from deapi_sdk.webhook import construct_event, InvalidSignatureError
 #
 # app = FastAPI()
 #
