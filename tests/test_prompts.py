@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
+from deapi_sdk import AsyncDeapiClient, DeapiClient
 
 TEST_BASE_URL = "https://test.deapi.ai"
 

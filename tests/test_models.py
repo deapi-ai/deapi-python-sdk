@@ -6,9 +6,9 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
-from deapi._types import InferenceType
-from deapi.types.common import ModelInfo, ModelsResponse
+from deapi_sdk import AsyncDeapiClient, DeapiClient
+from deapi_sdk._types import InferenceType
+from deapi_sdk.types.common import ModelInfo, ModelsResponse
 
 BASE = "https://test.deapi.ai"
 MODELS_URL = f"{BASE}/api/v2/models"

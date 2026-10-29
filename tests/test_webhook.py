@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from deapi.webhook import (
+from deapi_sdk.webhook import (
     InvalidSignatureError,
     WebhookEvent,
     construct_event,
@@ -196,7 +196,7 @@ class TestConstructEvent:
 
 class TestInvalidSignatureError:
     def test_is_deapi_error(self) -> None:
-        from deapi._exceptions import DeapiError
+        from deapi_sdk._exceptions import DeapiError
         err = InvalidSignatureError()
         assert isinstance(err, DeapiError)
 

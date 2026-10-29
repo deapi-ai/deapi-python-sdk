@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from deapi._exceptions import (
+from deapi_sdk._exceptions import (
     AccountSuspendedError,
     AuthenticationError,
     NetworkError,
@@ -64,7 +64,7 @@ class TestExceptionHierarchy:
 
 class TestNewExceptions:
     def test_hierarchy(self) -> None:
-        from deapi import (
+        from deapi_sdk import (
             ActiveKeyLimitReachedError,
             InsufficientPermissionsError,
             IpNotAllowedError,

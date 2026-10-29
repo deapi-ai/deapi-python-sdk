@@ -19,10 +19,10 @@ from typing import Any
 
 import pytest
 
-from deapi import AsyncDeapiClient, DeapiClient
-from deapi._exceptions import AuthenticationError, ValidationError
-from deapi._types import JobStatus
-from deapi.types.common import ModelInfo
+from deapi_sdk import AsyncDeapiClient, DeapiClient
+from deapi_sdk._exceptions import AuthenticationError, ValidationError
+from deapi_sdk._types import JobStatus
+from deapi_sdk.types.common import ModelInfo
 
 # Skip all tests in this module unless DEAPI_API_KEY is set and -m integration is used
 pytestmark = pytest.mark.integration

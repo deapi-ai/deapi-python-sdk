@@ -7,13 +7,13 @@ import httpx
 import pytest
 import respx
 
-from deapi import (
+from deapi_sdk import (
     AsyncDeapiClient,
     DeapiClient,
 )
-from deapi._client import BaseClient
-from deapi._config import ClientConfig
-from deapi._exceptions import (
+from deapi_sdk._client import BaseClient
+from deapi_sdk._config import ClientConfig
+from deapi_sdk._exceptions import (
     AccountSuspendedError,
     AuthenticationError,
     DeapiError,

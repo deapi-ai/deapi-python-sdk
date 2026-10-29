@@ -10,9 +10,9 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
-from deapi.types.common import JobResult
-from deapi.types.v1.video import VideoDescription, parse_video_description
+from deapi_sdk import AsyncDeapiClient, DeapiClient
+from deapi_sdk.types.common import JobResult
+from deapi_sdk.types.v1.video import VideoDescription, parse_video_description
 
 V2 = "https://test.deapi.ai/api/v2"
 JOB = {"data": {"request_id": "job-1"}}
@@ -297,14 +297,14 @@ class TestDescriptionResult:
     @respx.mock
     def test_download_error(self, client_v2: DeapiClient) -> None:
         respx.get("https://storage.example/gone.json").mock(return_value=httpx.Response(404))
-        from deapi._exceptions import DeapiError
+        from deapi_sdk._exceptions import DeapiError
 
         with pytest.raises(DeapiError):
             client_v2.video.get_description("https://storage.example/gone.json")
 
     @respx.mock
     def test_download_errors_and_bad_json(self, client_v2: DeapiClient) -> None:
-        from deapi._exceptions import DeapiError, NetworkError
+        from deapi_sdk._exceptions import DeapiError, NetworkError
 
         url = "https://storage.example/x.json"
         respx.get(url).mock(return_value=httpx.Response(403))
@@ -320,7 +320,7 @@ class TestDescriptionResult:
 
     @respx.mock
     async def test_async_download_errors_and_bad_json(self, async_client_v2: AsyncDeapiClient) -> None:
-        from deapi._exceptions import DeapiError, NetworkError
+        from deapi_sdk._exceptions import DeapiError, NetworkError
 
         url = "https://storage.example/x.json"
         respx.get(url).mock(return_value=httpx.Response(500))

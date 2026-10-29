@@ -8,9 +8,9 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
-from deapi.transcript import Transcript, parse_transcript, transcript_output_format
-from deapi.types.common import JobResult
+from deapi_sdk import AsyncDeapiClient, DeapiClient
+from deapi_sdk.transcript import Transcript, parse_transcript, transcript_output_format
+from deapi_sdk.types.common import JobResult
 
 V2 = "https://test.deapi.ai/api/v2"
 JOB = {"data": {"request_id": "tr-1"}}
@@ -257,7 +257,7 @@ class TestGetTranscript:
 
     @respx.mock
     def test_download_error_raises(self, client_v2: DeapiClient) -> None:
-        from deapi import DeapiError
+        from deapi_sdk import DeapiError
 
         respx.get(STORAGE).mock(return_value=httpx.Response(404, text="gone"))
         with pytest.raises(DeapiError, match="HTTP 404") as ei:
@@ -267,7 +267,7 @@ class TestGetTranscript:
     @respx.mock
     @pytest.mark.parametrize("status", [401, 403])
     def test_storage_auth_error_is_not_an_account_error(self, client_v2: DeapiClient, status: int) -> None:
-        from deapi import AuthenticationError, DeapiError, PermissionDeniedError
+        from deapi_sdk import AuthenticationError, DeapiError, PermissionDeniedError
 
         respx.get(STORAGE).mock(return_value=httpx.Response(status, text="denied"))
         with pytest.raises(DeapiError) as ei:
@@ -277,7 +277,7 @@ class TestGetTranscript:
 
     @respx.mock
     def test_transport_error_is_network_error(self, client_v2: DeapiClient) -> None:
-        from deapi import NetworkError
+        from deapi_sdk import NetworkError
 
         respx.get(STORAGE).mock(side_effect=httpx.ConnectError("boom"))
         with pytest.raises(NetworkError):
@@ -285,7 +285,7 @@ class TestGetTranscript:
 
     @respx.mock
     async def test_async_download_error(self, async_client_v2: AsyncDeapiClient) -> None:
-        from deapi import DeapiError, NetworkError
+        from deapi_sdk import DeapiError, NetworkError
 
         respx.get(STORAGE).mock(return_value=httpx.Response(403))
         with pytest.raises(DeapiError, match="HTTP 403") as ei:
@@ -296,7 +296,7 @@ class TestGetTranscript:
             await async_client_v2.transcription.get_transcript(done(result_url=STORAGE))
 
     def test_empty_inline_result_falls_back_to_url(self) -> None:
-        from deapi.resources.v2.transcription import _pick_result_source
+        from deapi_sdk.resources.v2.transcription import _pick_result_source
 
         assert _pick_result_source(done(result="", result_url=STORAGE), None) == (None, STORAGE)
 

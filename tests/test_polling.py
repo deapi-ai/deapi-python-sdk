@@ -4,9 +4,9 @@ import httpx
 import pytest
 import respx
 
-from deapi import DeapiClient
-from deapi._exceptions import JobTimeoutError
-from deapi._types import JobStatus
+from deapi_sdk import DeapiClient
+from deapi_sdk._exceptions import JobTimeoutError
+from deapi_sdk._types import JobStatus
 
 TEST_BASE_URL = "https://test.deapi.ai"
 TEST_API_KEY = "test-key-123"
@@ -139,7 +139,7 @@ V2_STATUS_URL = f"{TEST_BASE_URL}/api/v2/jobs"
 
 class TestJobResultFields:
     def test_new_fields_and_extra(self) -> None:
-        from deapi.types.common import JobResult
+        from deapi_sdk.types.common import JobResult
 
         r = JobResult.model_validate({
             "status": "error", "progress": None, "error_code": "PROCESSING_ERROR", "error_reason": "boom",
@@ -155,13 +155,13 @@ class TestJobResultFields:
         assert r.brand_new == 7
 
     def test_minimal_still_works(self) -> None:
-        from deapi.types.common import JobResult
+        from deapi_sdk.types.common import JobResult
 
         r = JobResult.model_validate({"status": "pending"})
         assert r.progress == 0.0 and r.error_code is None and r.prompt_boost is None
 
     def test_price_and_balance_extra(self) -> None:
-        from deapi.types.common import Balance, PriceResult
+        from deapi_sdk.types.common import Balance, PriceResult
 
         p = PriceResult.model_validate({"price": 0.1, "is_estimated": True, "estimate_basis": "model_history", "x": 1})
         assert p.is_estimated is True and p.estimate_basis == "model_history" and p.x == 1

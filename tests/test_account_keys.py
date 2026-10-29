@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import httpx
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
+from deapi_sdk import AsyncDeapiClient, DeapiClient
 
 BASE = "https://test.deapi.ai/api/v2"
 

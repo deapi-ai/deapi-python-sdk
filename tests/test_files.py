@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from deapi._files import normalize_file, normalize_files
+from deapi_sdk._files import normalize_file, normalize_files
 
 
 class TestNormalizeFile:

@@ -10,8 +10,8 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
-from deapi._cards import aget_card, fill_from_card, get_card
+from deapi_sdk import AsyncDeapiClient, DeapiClient
+from deapi_sdk._cards import aget_card, fill_from_card, get_card
 
 BASE = "https://test.deapi.ai"
 V2 = f"{BASE}/api/v2"
@@ -230,7 +230,7 @@ class TestFallbacksAndOptOut:
         self, status: int, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
         now = [1000.0]
-        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
+        monkeypatch.setattr("deapi_sdk._cards.time.monotonic", lambda: now[0])
         models = respx.get(f"{V2}/models").mock(return_value=httpx.Response(status, json={"message": "x"}))
         gen = _post("images/generations")
         with _client(max_retries=0) as c:
@@ -375,7 +375,7 @@ class TestAsyncLoops:
         import asyncio
 
         now = [0.0]
-        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
+        monkeypatch.setattr("deapi_sdk._cards.time.monotonic", lambda: now[0])
         respx.get(f"{V2}/models").mock(return_value=httpx.Response(500, json={"message": "x"}))
         _post("images/generations/price", PRICE)
         c = AsyncDeapiClient(api_key=KEY, base_url=BASE, api_version="v2", max_retries=0)
@@ -420,7 +420,7 @@ class TestCatalogue:
     @respx.mock
     def test_ttl_refresh(self, monkeypatch: pytest.MonkeyPatch) -> None:
         now = [1000.0]
-        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
+        monkeypatch.setattr("deapi_sdk._cards.time.monotonic", lambda: now[0])
         route = respx.get(f"{V2}/models").mock(return_value=httpx.Response(200, json=_slug_page(["m"], 1, 1)))
         with _client() as c:
             get_card(c._http_client, "m")
@@ -434,7 +434,7 @@ class TestCatalogue:
     @respx.mock
     def test_refresh_on_slug_miss_is_throttled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         now = [1000.0]
-        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
+        monkeypatch.setattr("deapi_sdk._cards.time.monotonic", lambda: now[0])
         route = respx.get(f"{V2}/models").mock(side_effect=[
             httpx.Response(200, json=_slug_page(["old"], 1, 1)),
             httpx.Response(200, json=_slug_page(["old", "new"], 1, 1)),
@@ -450,7 +450,7 @@ class TestCatalogue:
     @respx.mock
     def test_stale_cards_kept_when_refresh_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
         now = [1000.0]
-        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
+        monkeypatch.setattr("deapi_sdk._cards.time.monotonic", lambda: now[0])
         respx.get(f"{V2}/models").mock(side_effect=[
             httpx.Response(200, json=_slug_page(["m"], 1, 1)),
             httpx.Response(401, json={"message": "x"}),
@@ -473,7 +473,7 @@ class TestCatalogue:
 
 
 def test_repr_does_not_leak_api_key() -> None:
-    from deapi._config import ClientConfig
+    from deapi_sdk._config import ClientConfig
 
     config = ClientConfig.from_env(api_key=KEY)
     assert KEY not in repr(config) and KEY not in str(config)
