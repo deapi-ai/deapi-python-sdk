@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     DONE = "done"
     ERROR = "error"
 
 
-class InferenceType(str, Enum):
+class InferenceType(StrEnum):
     TXT2IMG = "txt2img"
     IMG2IMG = "img2img"
     TXT2AUDIO = "txt2audio"

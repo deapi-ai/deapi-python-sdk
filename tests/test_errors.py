@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 from typing import Any
 from unittest.mock import patch
@@ -218,7 +218,7 @@ class TestRetryAfter:
 
     @respx.mock
     def test_http_date(self) -> None:
-        when = datetime.now(timezone.utc) + timedelta(seconds=60)
+        when = datetime.now(UTC) + timedelta(seconds=60)
         respx.get(BALANCE_URL).mock(
             return_value=httpx.Response(
                 429,

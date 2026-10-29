@@ -1,6 +1,6 @@
 # DeAPI Python SDK
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Official Python SDK for the [DeAPI](https://deapi.ai) distributed AI inference platform. API details live in the [DeAPI docs](https://docs.deapi.ai).
@@ -499,9 +499,9 @@ The [`examples/`](examples/) directory contains runnable scripts:
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.11+
 - [`httpx`](https://www.python-httpx.org/) >= 0.25.0
-- [`pydantic`](https://docs.pydantic.dev/) >= 2.0.0
+- [`pydantic`](https://docs.pydantic.dev/) >= 2.6.0
 
 ## License
 

@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import mimetypes
 from pathlib import Path
-from typing import BinaryIO, Union
+from typing import BinaryIO, TypeAlias
 
 # Types accepted for file parameters. A plain ``str`` is intentionally NOT
 # accepted: it must never be read as a filesystem path by default, so untrusted
 # input handed to a server cannot make it read and exfiltrate an arbitrary local
 # file. Pass a local file explicitly as ``Path(...)``, or pass ``bytes`` / an open
 # binary file object.
-FileInput = Union[Path, bytes, BinaryIO]
+FileInput: TypeAlias = Path | bytes | BinaryIO
 
 
 def normalize_file(file: FileInput, param_name: str = "file") -> tuple[str, bytes, str]:
