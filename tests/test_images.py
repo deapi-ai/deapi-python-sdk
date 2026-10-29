@@ -96,7 +96,7 @@ class TestImageTransform:
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"fake-png-data")
-            tmp_path = f.name
+            tmp_path = Path(f.name)
 
         job = client.images.transform(
             prompt="make it a painting",
@@ -129,10 +129,10 @@ class TestImageTransform:
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f1:
             f1.write(b"image1")
-            path1 = f1.name
+            path1 = Path(f1.name)
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f2:
             f2.write(b"image2")
-            path2 = f2.name
+            path2 = Path(f2.name)
 
         job = client.images.transform(
             prompt="blend",
@@ -197,7 +197,7 @@ class TestImageUpscale:
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"fake-png-data")
-            tmp_path = f.name
+            tmp_path = Path(f.name)
         job = client.images.upscale(image=tmp_path, model="realesrgan-x4")
         assert job.request_id == "test-uuid-123"
         Path(tmp_path).unlink()

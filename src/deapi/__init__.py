@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
+
 from deapi._client import AsyncHTTPClient, SyncHTTPClient
 from deapi._config import ClientConfig
 from deapi._exceptions import (
@@ -152,6 +154,9 @@ class DeapiClient:
         max_retries: int | None = None,
         api_version: str | None = None,
         fill_model_defaults: bool | None = None,
+        max_retry_after: float | None = None,
+        http_client: httpx.Client | None = None,
+        owns_http_client: bool | None = None,
     ) -> None:
         self._config = ClientConfig.from_env(
             api_key=api_key,
@@ -160,8 +165,11 @@ class DeapiClient:
             max_retries=max_retries,
             api_version=api_version,
             fill_model_defaults=fill_model_defaults,
+            max_retry_after=max_retry_after,
         )
-        self._http_client = SyncHTTPClient(self._config)
+        self._http_client = SyncHTTPClient(
+            self._config, http_client, owns_http_client=owns_http_client
+        )
         self._attach_resources()
 
     def _attach_resources(self) -> None:
@@ -222,6 +230,9 @@ class AsyncDeapiClient:
         max_retries: int | None = None,
         api_version: str | None = None,
         fill_model_defaults: bool | None = None,
+        max_retry_after: float | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        owns_http_client: bool | None = None,
     ) -> None:
         self._config = ClientConfig.from_env(
             api_key=api_key,
@@ -230,8 +241,11 @@ class AsyncDeapiClient:
             max_retries=max_retries,
             api_version=api_version,
             fill_model_defaults=fill_model_defaults,
+            max_retry_after=max_retry_after,
         )
-        self._http_client = AsyncHTTPClient(self._config)
+        self._http_client = AsyncHTTPClient(
+            self._config, http_client, owns_http_client=owns_http_client
+        )
         self._attach_resources()
 
     def _attach_resources(self) -> None:

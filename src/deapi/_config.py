@@ -11,6 +11,11 @@ _DEFAULT_BASE_URL = "https://api.deapi.ai"
 _DEFAULT_TIMEOUT = 30.0
 _DEFAULT_MAX_RETRIES = 3
 _DEFAULT_API_VERSION = "v2"
+# Upper bound on how long we actually sleep for a 429 `Retry-After`, regardless of
+# the value (or absolute HTTP-date) the server sends. Keeps a long/day-bucket
+# Retry-After from parking a request for minutes/hours; the true server value is
+# still carried on the raised RateLimitError for the caller to inspect.
+_DEFAULT_MAX_RETRY_AFTER = 60.0
 
 
 @dataclass(frozen=True)
@@ -21,6 +26,7 @@ class ClientConfig:
     max_retries: int = _DEFAULT_MAX_RETRIES
     api_version: str = _DEFAULT_API_VERSION
     fill_model_defaults: bool = True
+    max_retry_after: float = _DEFAULT_MAX_RETRY_AFTER
     _user_agent: str = field(init=False, default=f"deapi-python-sdk/{__version__}")
 
     @classmethod
@@ -33,6 +39,7 @@ class ClientConfig:
         max_retries: int | None = None,
         api_version: str | None = None,
         fill_model_defaults: bool | None = None,
+        max_retry_after: float | None = None,
     ) -> ClientConfig:
         resolved_key = (api_key or os.environ.get("DEAPI_API_KEY", "")).strip()
         if not resolved_key:
@@ -49,6 +56,9 @@ class ClientConfig:
                 fill_model_defaults
                 if fill_model_defaults is not None
                 else parse_flag(os.environ.get("DEAPI_FILL_MODEL_DEFAULTS"))
+            ),
+            max_retry_after=(
+                max_retry_after if max_retry_after is not None else _DEFAULT_MAX_RETRY_AFTER
             ),
         )
 

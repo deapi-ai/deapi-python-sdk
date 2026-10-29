@@ -135,7 +135,7 @@ class TestVideoAnimate:
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"fake-png-data")
-            tmp_path = f.name
+            tmp_path = Path(f.name)
 
         job = client.video.animate(
             prompt="animate",

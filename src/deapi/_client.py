@@ -193,7 +193,10 @@ class BaseClient:
             return None
 
         if isinstance(exc, RateLimitError):
-            return max(exc.retry_after, 1.0)
+            # Honour Retry-After, but never sleep longer than the configured cap:
+            # a long or day-bucket value (seconds or a far-future HTTP-date) must
+            # not park the request. The raw value stays on exc.retry_after.
+            return min(max(exc.retry_after, 1.0), self._config.max_retry_after)
 
         safe = method.upper() in ("GET", "HEAD", "OPTIONS")
 
@@ -208,17 +211,38 @@ class BaseClient:
 
 
 class SyncHTTPClient(BaseClient):
-    """Synchronous HTTP client with retry logic."""
+    """Synchronous HTTP client with retry logic.
 
-    def __init__(self, config: ClientConfig) -> None:
+    An ``httpx.Client`` may be injected so many per-user clients share one
+    connection pool. Auth is sent per request (not baked into the transport),
+    so a shared client serves every user with the right token. A caller-injected
+    client is not closed by :meth:`close` unless ``owns_http_client=True``.
+    """
+
+    def __init__(
+        self,
+        config: ClientConfig,
+        http_client: httpx.Client | None = None,
+        *,
+        owns_http_client: bool | None = None,
+    ) -> None:
         super().__init__(config)
-        self._http = httpx.Client(
-            timeout=config.timeout,
-            headers=self._default_headers(),
-        )
+        self._headers = self._default_headers()
+        if http_client is not None:
+            self._http = http_client
+            self._owns_http = bool(owns_http_client)
+        else:
+            self._http = httpx.Client(timeout=config.timeout)
+            self._owns_http = True if owns_http_client is None else owns_http_client
+
+    @property
+    def owns_http_client(self) -> bool:
+        return self._owns_http
 
     def close(self) -> None:
-        self._http.close()
+        # Only close a transport we created; never close one the caller injected.
+        if self._owns_http:
+            self._http.close()
 
     def request(
         self,
@@ -241,6 +265,7 @@ class SyncHTTPClient(BaseClient):
                     data=data,
                     files=files,
                     params=params,
+                    headers=self._headers,
                 )
                 self._raise_for_status(response)
                 return self._parse_success(response)
@@ -282,17 +307,38 @@ class SyncHTTPClient(BaseClient):
 
 
 class AsyncHTTPClient(BaseClient):
-    """Asynchronous HTTP client with retry logic."""
+    """Asynchronous HTTP client with retry logic.
 
-    def __init__(self, config: ClientConfig) -> None:
+    An ``httpx.AsyncClient`` may be injected so many per-user clients share one
+    connection pool. Auth is sent per request (not baked into the transport),
+    so a shared client serves every user with the right token. A caller-injected
+    client is not closed by :meth:`close` unless ``owns_http_client=True``.
+    """
+
+    def __init__(
+        self,
+        config: ClientConfig,
+        http_client: httpx.AsyncClient | None = None,
+        *,
+        owns_http_client: bool | None = None,
+    ) -> None:
         super().__init__(config)
-        self._http = httpx.AsyncClient(
-            timeout=config.timeout,
-            headers=self._default_headers(),
-        )
+        self._headers = self._default_headers()
+        if http_client is not None:
+            self._http = http_client
+            self._owns_http = bool(owns_http_client)
+        else:
+            self._http = httpx.AsyncClient(timeout=config.timeout)
+            self._owns_http = True if owns_http_client is None else owns_http_client
+
+    @property
+    def owns_http_client(self) -> bool:
+        return self._owns_http
 
     async def close(self) -> None:
-        await self._http.aclose()
+        # Only close a transport we created; never close one the caller injected.
+        if self._owns_http:
+            await self._http.aclose()
 
     async def request(
         self,
@@ -315,6 +361,7 @@ class AsyncHTTPClient(BaseClient):
                     data=data,
                     files=files,
                     params=params,
+                    headers=self._headers,
                 )
                 self._raise_for_status(response)
                 return self._parse_success(response)
