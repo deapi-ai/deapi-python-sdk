@@ -121,7 +121,7 @@ class ModelInfo(BaseModel):
 
     @field_validator("info", mode="before")
     @classmethod
-    def _normalize_info(cls, v: Any) -> dict[str, Any] | None:
+    def _normalize_info(cls, v: Any) -> Any:
         # PHP/Laravel returns empty arrays as [] instead of {}
         if isinstance(v, list):
             return {} if len(v) == 0 else None

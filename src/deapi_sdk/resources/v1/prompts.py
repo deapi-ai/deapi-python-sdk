@@ -56,10 +56,7 @@ class Prompts:
         data, files = _build_video_prompt_multipart(
             prompt=prompt, negative_prompt=negative_prompt, image=image,
         )
-        if files:
-            resp = self._client.post(url, data=data, files=files)
-        else:
-            resp = self._client.post(url, json=data)
+        resp = self._client.post(url, data=data, files=files) if files else self._client.post(url, json=data)
         return EnhancePromptResult.model_validate(resp.get("data", resp))
 
     def enhance_video_price(

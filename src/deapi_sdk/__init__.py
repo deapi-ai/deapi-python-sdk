@@ -30,14 +30,20 @@ from deapi_sdk._exceptions import (
 from deapi_sdk._polling import AsyncJob, AsyncJobs, Job, Jobs
 from deapi_sdk._types import InferenceType, JobStatus
 from deapi_sdk._version import __version__
-from deapi_sdk.transcript import Transcript, TranscriptSegment, TranscriptWord, parse_transcript, transcript_output_format
+from deapi_sdk.transcript import (
+    Transcript,
+    TranscriptSegment,
+    TranscriptWord,
+    parse_transcript,
+    transcript_output_format,
+)
 from deapi_sdk.types.common import Balance, JobResult, JobSubmission, ModelInfo, ModelsResponse, PriceResult
 from deapi_sdk.types.v1.video import VideoDescription, VideoEvent, parse_video_description
 from deapi_sdk.webhook import InvalidSignatureError, WebhookEvent, WebhookEventData, construct_event, verify_signature
 
 
 def _attach_v1_resources_sync(client: DeapiClient) -> None:
-    from deapi_sdk.resources.v1 import Audio, Embeddings, Images, Models, OCR, Prompts, Transcription, Video
+    from deapi_sdk.resources.v1 import OCR, Audio, Embeddings, Images, Models, Prompts, Transcription, Video
     client.images = Images(client._http_client)
     client.models = Models(client._http_client)
     client.audio = Audio(client._http_client)
@@ -51,8 +57,14 @@ def _attach_v1_resources_sync(client: DeapiClient) -> None:
 
 def _attach_v1_resources_async(client: AsyncDeapiClient) -> None:
     from deapi_sdk.resources.v1 import (
-        AsyncAudio, AsyncEmbeddings, AsyncImages, AsyncModels,
-        AsyncOCR, AsyncPrompts, AsyncTranscription, AsyncVideo,
+        AsyncAudio,
+        AsyncEmbeddings,
+        AsyncImages,
+        AsyncModels,
+        AsyncOCR,
+        AsyncPrompts,
+        AsyncTranscription,
+        AsyncVideo,
     )
     client.images = AsyncImages(client._http_client)
     client.models = AsyncModels(client._http_client)
@@ -67,7 +79,16 @@ def _attach_v1_resources_async(client: AsyncDeapiClient) -> None:
 
 def _attach_v2_resources_sync(client: DeapiClient) -> None:
     from deapi_sdk.resources.v2 import (
-        AccountResource, Audio, Embeddings, Images, KeysResource, Models, OCR, Prompts, Transcription, Video,
+        OCR,
+        AccountResource,
+        Audio,
+        Embeddings,
+        Images,
+        KeysResource,
+        Models,
+        Prompts,
+        Transcription,
+        Video,
     )
     client.images = Images(client._http_client)
     client.models = Models(client._http_client)
@@ -84,8 +105,16 @@ def _attach_v2_resources_sync(client: DeapiClient) -> None:
 
 def _attach_v2_resources_async(client: AsyncDeapiClient) -> None:
     from deapi_sdk.resources.v2 import (
-        AsyncAccountResource, AsyncKeysResource, AsyncAudio, AsyncEmbeddings, AsyncImages, AsyncModels,
-        AsyncOCR, AsyncPrompts, AsyncTranscription, AsyncVideo,
+        AsyncAccountResource,
+        AsyncAudio,
+        AsyncEmbeddings,
+        AsyncImages,
+        AsyncKeysResource,
+        AsyncModels,
+        AsyncOCR,
+        AsyncPrompts,
+        AsyncTranscription,
+        AsyncVideo,
     )
     client.images = AsyncImages(client._http_client)
     client.models = AsyncModels(client._http_client)

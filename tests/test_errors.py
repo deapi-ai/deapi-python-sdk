@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from email.utils import format_datetime
 from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from typing import Any
 from unittest.mock import patch
 
@@ -249,7 +249,10 @@ class TestRetryPolicy:
     @respx.mock
     def test_get_retried_on_500(self) -> None:
         route = respx.get(BALANCE_URL)
-        route.side_effect = [httpx.Response(500, json={"message": "x"}), httpx.Response(200, json={"data": {"balance": 1}})]
+        route.side_effect = [
+            httpx.Response(500, json={"message": "x"}),
+            httpx.Response(200, json={"data": {"balance": 1}}),
+        ]
         with _v2(max_retries=2) as client, patch("deapi_sdk._client.time.sleep") as sleep:
             assert client.balance().balance == 1
         assert route.call_count == 2
@@ -266,9 +269,8 @@ class TestRetryPolicy:
     @respx.mock
     def test_post_not_retried_on_500(self) -> None:
         route = respx.post(JOB_URL).mock(return_value=httpx.Response(500, json={"message": "x"}))
-        with _v2(max_retries=3) as client, patch("deapi_sdk._client.time.sleep") as sleep:
-            with pytest.raises(ServerError):
-                client._http_client.post(JOB_URL, json={})  # noqa: SLF001
+        with _v2(max_retries=3) as client, patch("deapi_sdk._client.time.sleep") as sleep, pytest.raises(ServerError):
+            client._http_client.post(JOB_URL, json={})  # noqa: SLF001
         assert route.call_count == 1
         sleep.assert_not_called()
 
@@ -276,9 +278,8 @@ class TestRetryPolicy:
     @respx.mock
     def test_post_not_retried_on_non_connect_timeout(self, exc: Exception) -> None:
         route = respx.post(JOB_URL).mock(side_effect=exc)
-        with _v2(max_retries=3) as client, patch("deapi_sdk._client.time.sleep"):
-            with pytest.raises(NetworkError):
-                client._http_client.post(JOB_URL, json={})  # noqa: SLF001
+        with _v2(max_retries=3) as client, patch("deapi_sdk._client.time.sleep"), pytest.raises(NetworkError):
+            client._http_client.post(JOB_URL, json={})  # noqa: SLF001
         assert route.call_count == 1
 
     @respx.mock

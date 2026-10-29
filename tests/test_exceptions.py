@@ -3,10 +3,10 @@ from __future__ import annotations
 from deapi_sdk._exceptions import (
     AccountSuspendedError,
     AuthenticationError,
-    NetworkError,
     DeapiError,
     InsufficientBalanceError,
     JobTimeoutError,
+    NetworkError,
     NotFoundError,
     RateLimitError,
     ServerError,

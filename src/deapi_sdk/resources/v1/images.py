@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Union
+from typing import Any
 
 from deapi_sdk._cards import IMAGE_KEYS, afill_payload, fill_payload
 from deapi_sdk._client import AsyncHTTPClient, SyncHTTPClient
@@ -26,7 +26,7 @@ class Images:
         height: int | None = None,
         seed: int | None = None,
         negative_prompt: str | None = None,
-        loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+        loras: list[LoraWeight | dict[str, Any]] | None = None,
         guidance: float | None = None,
         steps: int | None = None,
         quality: str | None = None,
@@ -38,7 +38,8 @@ class Images:
 
         Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue
         request per client, cached; disable with ``fill_model_defaults=False``) and ``seed`` defaults to -1
-        (random). ``seed``, ``steps`` and ``guidance`` are otherwise only sent when set. ``quality`` is a model tier such as
+        (random). ``seed``, ``steps`` and ``guidance`` are otherwise only sent when set.
+        ``quality`` is a model tier such as
         ``"low"``/``"medium"``/``"high"``. ``enhance_prompt=True`` boosts the prompt inside
         the job (v2; the boost fee is billed on the job).
         """
@@ -64,14 +65,15 @@ class Images:
         height: int | None = None,
         seed: int | None = None,
         negative_prompt: str | None = None,
-        loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+        loras: list[LoraWeight | dict[str, Any]] | None = None,
         guidance: float | None = None,
         steps: int | None = None,
         quality: str | None = None,
     ) -> PriceResult:
         """Calculate price for text-to-image generation.
 
-        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("txt2img_price")
@@ -94,7 +96,7 @@ class Images:
         image: FileInput | None = None,
         images: list[FileInput] | None = None,
         negative_prompt: str | None = None,
-        loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+        loras: list[LoraWeight | dict[str, Any]] | None = None,
         width: int | None = None,
         height: int | None = None,
         guidance: float | None = None,
@@ -108,7 +110,8 @@ class Images:
         Pass either ``image`` (one source) or ``images`` (several, sent as ``images[]``;
         the per-model maximum is ``max_input_images`` on the model card) -- not both.
 
-        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("img2img")
@@ -135,7 +138,7 @@ class Images:
         image: FileInput | None = None,
         images: list[FileInput] | None = None,
         negative_prompt: str | None = None,
-        loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+        loras: list[LoraWeight | dict[str, Any]] | None = None,
         width: int | None = None,
         height: int | None = None,
         guidance: float | None = None,
@@ -146,7 +149,8 @@ class Images:
         Some models price by the input size, so pass the same ``image``/``images`` the job
         will use. Without a source image the quote is sent as JSON.
 
-        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("img2img_price")
@@ -155,7 +159,9 @@ class Images:
             negative_prompt=negative_prompt, loras=loras, width=width, height=height,
             guidance=guidance, quality=quality,
         )
-        fill_payload(self._client, json_body if json_body is not None else data, IMAGE_KEYS, seed=True, form=json_body is None)
+        payload = json_body if json_body is not None else data
+        assert payload is not None  # one of json_body / data is always set
+        fill_payload(self._client, payload, IMAGE_KEYS, seed=True, form=json_body is None)
         resp = self._client.post(url, json=json_body, data=data, files=files)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -237,7 +243,7 @@ class AsyncImages:
         height: int | None = None,
         seed: int | None = None,
         negative_prompt: str | None = None,
-        loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+        loras: list[LoraWeight | dict[str, Any]] | None = None,
         guidance: float | None = None,
         steps: int | None = None,
         quality: str | None = None,
@@ -249,7 +255,8 @@ class AsyncImages:
 
         Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue
         request per client, cached; disable with ``fill_model_defaults=False``) and ``seed`` defaults to -1
-        (random). ``seed``, ``steps`` and ``guidance`` are otherwise only sent when set. ``quality`` is a model tier such as
+        (random). ``seed``, ``steps`` and ``guidance`` are otherwise only sent when set.
+        ``quality`` is a model tier such as
         ``"low"``/``"medium"``/``"high"``. ``enhance_prompt=True`` boosts the prompt inside
         the job (v2; the boost fee is billed on the job).
         """
@@ -275,14 +282,15 @@ class AsyncImages:
         height: int | None = None,
         seed: int | None = None,
         negative_prompt: str | None = None,
-        loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+        loras: list[LoraWeight | dict[str, Any]] | None = None,
         guidance: float | None = None,
         steps: int | None = None,
         quality: str | None = None,
     ) -> PriceResult:
         """Calculate price for text-to-image generation.
 
-        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("txt2img_price")
@@ -305,7 +313,7 @@ class AsyncImages:
         image: FileInput | None = None,
         images: list[FileInput] | None = None,
         negative_prompt: str | None = None,
-        loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+        loras: list[LoraWeight | dict[str, Any]] | None = None,
         width: int | None = None,
         height: int | None = None,
         guidance: float | None = None,
@@ -319,7 +327,8 @@ class AsyncImages:
         Pass either ``image`` (one source) or ``images`` (several, sent as ``images[]``;
         the per-model maximum is ``max_input_images`` on the model card) -- not both.
 
-        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("img2img")
@@ -346,7 +355,7 @@ class AsyncImages:
         image: FileInput | None = None,
         images: list[FileInput] | None = None,
         negative_prompt: str | None = None,
-        loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+        loras: list[LoraWeight | dict[str, Any]] | None = None,
         width: int | None = None,
         height: int | None = None,
         guidance: float | None = None,
@@ -357,7 +366,8 @@ class AsyncImages:
         Some models price by the input size, so pass the same ``image``/``images`` the job
         will use. Without a source image the quote is sent as JSON.
 
-        Unset ``width``, ``height`` and ``steps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height`` and ``steps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("img2img_price")
@@ -366,7 +376,9 @@ class AsyncImages:
             negative_prompt=negative_prompt, loras=loras, width=width, height=height,
             guidance=guidance, quality=quality,
         )
-        await afill_payload(self._client, json_body if json_body is not None else data, IMAGE_KEYS, seed=True, form=json_body is None)
+        payload = json_body if json_body is not None else data
+        assert payload is not None  # one of json_body / data is always set
+        await afill_payload(self._client, payload, IMAGE_KEYS, seed=True, form=json_body is None)
         resp = await self._client.post(url, json=json_body, data=data, files=files)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -439,7 +451,7 @@ _Files = list[tuple[str, tuple[str, bytes, str]]]
 
 
 def _serialize_loras(
-    loras: list[Union[LoraWeight, dict[str, Any]]],
+    loras: list[LoraWeight | dict[str, Any]],
 ) -> list[dict[str, Any]]:
     return [
         lora.model_dump() if isinstance(lora, LoraWeight) else lora
@@ -455,7 +467,7 @@ def _build_txt2img_payload(
     height: int | None = None,
     seed: int | None = None,
     negative_prompt: str | None = None,
-    loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+    loras: list[LoraWeight | dict[str, Any]] | None = None,
     guidance: float | None = None,
     steps: int | None = None,
     quality: str | None = None,
@@ -493,7 +505,7 @@ def _img2img_fields(
     steps: int | None,
     seed: int | None,
     negative_prompt: str | None,
-    loras: list[Union[LoraWeight, dict[str, Any]]] | None,
+    loras: list[LoraWeight | dict[str, Any]] | None,
     width: int | None,
     height: int | None,
     guidance: float | None,
@@ -537,7 +549,7 @@ def _build_img2img_multipart(
     image: FileInput | None = None,
     images: list[FileInput] | None = None,
     negative_prompt: str | None = None,
-    loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+    loras: list[LoraWeight | dict[str, Any]] | None = None,
     width: int | None = None,
     height: int | None = None,
     guidance: float | None = None,
@@ -571,7 +583,7 @@ def _build_img2img_price_request(
     image: FileInput | None = None,
     images: list[FileInput] | None = None,
     negative_prompt: str | None = None,
-    loras: list[Union[LoraWeight, dict[str, Any]]] | None = None,
+    loras: list[LoraWeight | dict[str, Any]] | None = None,
     width: int | None = None,
     height: int | None = None,
     guidance: float | None = None,

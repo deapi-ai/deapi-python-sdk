@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Union
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -86,7 +86,7 @@ class VideoDescription(BaseModel):
     meta: dict[str, Any] = {}
 
 
-def parse_video_description(raw: Union[str, bytes, dict]) -> VideoDescription:
+def parse_video_description(raw: str | bytes | dict[str, Any]) -> VideoDescription:
     """Parse a video description result (JSON string from ``JobResult.result``, bytes, or dict)."""
     if isinstance(raw, (str, bytes)):
         raw = json.loads(raw)

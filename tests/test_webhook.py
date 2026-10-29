@@ -34,7 +34,7 @@ SAMPLE_PAYLOAD = json.dumps({
 
 def _make_signature(payload: str, timestamp: str, secret: str = SECRET) -> str:
     """Create a valid signature for testing."""
-    signed_content = f"{timestamp}.".encode("utf-8") + payload.encode("utf-8")
+    signed_content = f"{timestamp}.".encode() + payload.encode("utf-8")
     sig = hmac.new(secret.encode("utf-8"), signed_content, hashlib.sha256).hexdigest()
     return f"sha256={sig}"
 

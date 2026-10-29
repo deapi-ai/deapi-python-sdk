@@ -50,7 +50,6 @@ class TestImageGeneration:
             webhook_url="https://example.com/hook",
         )
         request = route.calls.last.request
-        import json
         body = json.loads(request.content)
         assert body["prompt"] == "test prompt"
         assert body["negative_prompt"] == "blurry"
@@ -69,7 +68,6 @@ class TestImageGeneration:
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.images.generate(prompt="test", model="sdxl", width=512, height=512, seed=1)
-        import json
         body = json.loads(route.calls.last.request.content)
         assert "negative_prompt" not in body
         assert "loras" not in body

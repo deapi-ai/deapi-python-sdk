@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Union
+from typing import Any
 
 from deapi_sdk._client import AsyncHTTPClient, SyncHTTPClient
 from deapi_sdk._payload import webhook_fields
@@ -17,7 +17,7 @@ class Embeddings:
     def create(
         self,
         *,
-        input: Union[str, list[str]],
+        input: str | list[str],
         model: str,
         return_result_in_response: bool | None = None,
         webhook_url: str | None = None,
@@ -38,7 +38,7 @@ class Embeddings:
     def create_price(
         self,
         *,
-        input: Union[str, list[str]],
+        input: str | list[str],
         model: str,
         return_result_in_response: bool | None = None,
     ) -> PriceResult:
@@ -61,7 +61,7 @@ class AsyncEmbeddings:
     async def create(
         self,
         *,
-        input: Union[str, list[str]],
+        input: str | list[str],
         model: str,
         return_result_in_response: bool | None = None,
         webhook_url: str | None = None,
@@ -82,7 +82,7 @@ class AsyncEmbeddings:
     async def create_price(
         self,
         *,
-        input: Union[str, list[str]],
+        input: str | list[str],
         model: str,
         return_result_in_response: bool | None = None,
     ) -> PriceResult:
@@ -100,7 +100,7 @@ class AsyncEmbeddings:
 
 def _build_embedding_payload(
     *,
-    input: Union[str, list[str]],
+    input: str | list[str],
     model: str,
     return_result_in_response: bool | None = None,
     webhook_url: str | None = None,

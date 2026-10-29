@@ -8,7 +8,6 @@ from deapi_sdk._files import FileInput, normalize_file
 from deapi_sdk.types.common import PriceResult
 from deapi_sdk.types.v1.prompts import EnhancePromptResult
 
-
 _LEGACY_DEPRECATION = (
     "v2 has a single unified prompt enhancer — call `prompts.enhance(prompt=..., "
     "type=..., model_slug=...)` instead. Legacy method '{name}' is deprecated and "

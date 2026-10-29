@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 # URL prefix per API version.
 # v1 sits under /api/v1/client/* (legacy), v2 drops the /client/ segment.
 PREFIXES: dict[str, str] = {

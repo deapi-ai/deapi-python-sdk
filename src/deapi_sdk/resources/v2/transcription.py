@@ -11,7 +11,6 @@ from deapi_sdk._polling import AsyncJob, Job
 from deapi_sdk.transcript import Transcript, parse_transcript
 from deapi_sdk.types.common import JobResult, PriceResult
 
-
 _LEGACY_DEPRECATION = (
     "v2 has a unified transcription endpoint — call `transcription.create(...)` "
     "with `source_url` or `source_file`. Legacy method '{name}' is deprecated and "

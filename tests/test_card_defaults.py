@@ -64,7 +64,9 @@ def _client(**kw: Any) -> DeapiClient:
 
 
 def test_fill_from_card_helper() -> None:
-    out = fill_from_card({"width": None, "height": 5}, {"width": 1, "height": 2, "steps": None}, ["width", "height", "steps"])
+    out = fill_from_card(
+        {"width": None, "height": 5}, {"width": 1, "height": 2, "steps": None}, ["width", "height", "steps"]
+    )
     assert out == {"width": 1, "height": 5}
 
 

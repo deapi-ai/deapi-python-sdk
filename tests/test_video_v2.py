@@ -368,7 +368,9 @@ class TestAsyncParity:
         await async_client_v2.video.animate(
             prompt="p", model="m", ref_images=[b"1", b"2"], ref_audios=[b"a"], ref_videos=[b"v"]
         )
-        assert names(ani.calls.last.request)[-4:] == ["ref_images[0]", "ref_images[1]", "ref_videos[0]", "ref_audios[0]"]
+        assert names(ani.calls.last.request)[-4:] == [
+            "ref_images[0]", "ref_images[1]", "ref_videos[0]", "ref_audios[0]",
+        ]
         with pytest.raises(ValueError):
             await async_client_v2.video.animate(prompt="p", model="m", ref_images=[b"1"], first_frame_image=b"f")
 
@@ -383,7 +385,9 @@ class TestAsyncParity:
     @respx.mock
     async def test_describe_and_fetch(self, async_client_v2: AsyncDeapiClient) -> None:
         route = respx.post(f"{V2}/videos/descriptions").mock(return_value=httpx.Response(200, json=JOB))
-        await async_client_v2.video.describe(model="m", video_file=b"x", webhook_url="https://x.example/h", webhook_secret=SECRET)
+        await async_client_v2.video.describe(
+            model="m", video_file=b"x", webhook_url="https://x.example/h", webhook_secret=SECRET
+        )
         assert dict(multipart_fields(route.calls.last.request))["video_file"] == b"x"
         with pytest.raises(ValueError):
             await async_client_v2.video.describe(model="m")

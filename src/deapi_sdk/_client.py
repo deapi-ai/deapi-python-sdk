@@ -201,11 +201,10 @@ class BaseClient:
         safe = method.upper() in ("GET", "HEAD", "OPTIONS")
 
         if isinstance(exc, ServerError):
-            return min(2 ** attempt, 8.0) if safe else None
+            return min(2.0 ** attempt, 8.0) if safe else None
 
-        if isinstance(exc, NetworkError):
-            if safe or getattr(exc, "_never_sent", False):
-                return min(2 ** attempt, 8.0)
+        if isinstance(exc, NetworkError) and (safe or getattr(exc, "_never_sent", False)):
+            return min(2.0 ** attempt, 8.0)
 
         return None
 

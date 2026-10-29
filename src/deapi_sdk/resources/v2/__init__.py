@@ -4,12 +4,11 @@ from __future__ import annotations
 # which are version-aware via ENDPOINTS["v2"]. We re-export the v1 classes
 # for those, and define dedicated v2 classes only where behavior diverges
 # (Transcription consolidated, Prompts unified-or-deprecated).
-
 from deapi_sdk.resources.v1.audio import AsyncAudio, Audio
 from deapi_sdk.resources.v1.embeddings import AsyncEmbeddings, Embeddings
 from deapi_sdk.resources.v1.images import AsyncImages, Images
 from deapi_sdk.resources.v1.models import AsyncModels, Models
-from deapi_sdk.resources.v1.ocr import AsyncOCR, OCR
+from deapi_sdk.resources.v1.ocr import OCR, AsyncOCR
 from deapi_sdk.resources.v1.video import AsyncVideo, Video
 from deapi_sdk.resources.v2.account import AccountResource, AsyncAccountResource
 from deapi_sdk.resources.v2.keys import AsyncKeysResource, KeysResource

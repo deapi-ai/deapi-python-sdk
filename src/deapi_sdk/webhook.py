@@ -80,7 +80,7 @@ def verify_signature(
     if isinstance(payload, str):
         payload = payload.encode("utf-8")
 
-    signed_content = f"{timestamp}.".encode("utf-8") + payload
+    signed_content = f"{timestamp}.".encode() + payload
     expected = hmac.new(
         secret.encode("utf-8"),
         signed_content,

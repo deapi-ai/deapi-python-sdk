@@ -22,7 +22,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 logger = logging.getLogger("deapi")
 
@@ -154,16 +155,21 @@ def _fill_tts_mode(cache: _CardCache, payload: dict[str, Any]) -> None:
     if cache.cards is None or payload.get("model") not in cache.cards:
         return
     info = cache.cards[payload["model"]]
-    features = info.get("features") if isinstance(info.get("features"), dict) else {}
-    defaults = info.get("defaults") if isinstance(info.get("defaults"), dict) else {}
+    _features = info.get("features")
+    features = _features if isinstance(_features, dict) else {}
+    _defaults = info.get("defaults")
+    defaults = _defaults if isinstance(_defaults, dict) else {}
     if payload.get("mode") is None and features.get("supports_custom_voice") is False:
         if features.get("supports_voice_design") and not features.get("supports_voice_clone"):
             payload["mode"] = "voice_design"
         elif features.get("supports_voice_clone") and not features.get("supports_voice_design"):
             payload["mode"] = "voice_clone"
-    if (payload.get("mode") or "custom_voice") == "custom_voice":
-        if payload.get("voice") is None and defaults.get("voice") is not None:
-            payload["voice"] = defaults["voice"]
+    if (
+        (payload.get("mode") or "custom_voice") == "custom_voice"
+        and payload.get("voice") is None
+        and defaults.get("voice") is not None
+    ):
+        payload["voice"] = defaults["voice"]
 
 
 def _apply(
@@ -208,7 +214,7 @@ def _has_next(resp: Any, page: int) -> bool:
         return False
     meta = resp.get("meta")
     if isinstance(meta, dict) and isinstance(meta.get("last_page"), int) and meta["last_page"] > 0:
-        return page < meta["last_page"]
+        return bool(page < meta["last_page"])
     return len(resp["data"]) >= _PAGE_SIZE
 
 

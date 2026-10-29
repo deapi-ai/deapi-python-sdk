@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 from datetime import date, datetime
 from typing import Any
 
@@ -89,7 +90,10 @@ class KeysResource:
 
         ``limit`` is the page size (default 50, max 100; ``per_page`` is an alias, ``limit`` wins).
         """
-        resp = self._client.get(self._client._resolve_endpoint("keys"), params=page_params(limit, page, per_page, params))
+        resp = self._client.get(
+            self._client._resolve_endpoint("keys"),
+            params=page_params(limit, page, per_page, params),
+        )
         return ApiKeysPage.model_validate(resp)
 
     def get(self, key_id: int | str) -> ApiKey:
@@ -116,7 +120,7 @@ class KeysResource:
         expires_at: str | date | datetime | None = None,
         limit: float | None = None,
         reset_interval: str | None = None,
-        ip_whitelist: list[str] | None = None,
+        ip_whitelist: builtins.list[str] | None = None,
         role: str | None = None,
         **extra: Any,
     ) -> ApiKeyCreated:
@@ -139,7 +143,7 @@ class KeysResource:
         expires_at: str | date | datetime | None = _UNSET,
         limit: float | None = _UNSET,
         reset_interval: str | None = _UNSET,
-        ip_whitelist: list[str] | None = _UNSET,
+        ip_whitelist: builtins.list[str] | None = _UNSET,
         **extra: Any,
     ) -> ApiKey:
         """Change a key (``PATCH /keys/{id}``). ADMIN key only.
@@ -229,7 +233,7 @@ class AsyncKeysResource:
         expires_at: str | date | datetime | None = None,
         limit: float | None = None,
         reset_interval: str | None = None,
-        ip_whitelist: list[str] | None = None,
+        ip_whitelist: builtins.list[str] | None = None,
         role: str | None = None,
         **extra: Any,
     ) -> ApiKeyCreated:
@@ -246,7 +250,7 @@ class AsyncKeysResource:
         expires_at: str | date | datetime | None = _UNSET,
         limit: float | None = _UNSET,
         reset_interval: str | None = _UNSET,
-        ip_whitelist: list[str] | None = _UNSET,
+        ip_whitelist: builtins.list[str] | None = _UNSET,
         **extra: Any,
     ) -> ApiKey:
         """Change a key (``PATCH /keys/{id}``). ADMIN key only.

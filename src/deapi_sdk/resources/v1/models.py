@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import warnings
 from typing import Any
 
@@ -84,8 +85,12 @@ class Models:
         return ModelsResponse.model_validate(resp)
 
     def list_all(
-        self, *, inference_types: list[str] | None = None, tags: list[str] | None = None, sort: str | None = None
-    ) -> list[ModelInfo]:
+        self,
+        *,
+        inference_types: builtins.list[str] | None = None,
+        tags: builtins.list[str] | None = None,
+        sort: str | None = None,
+    ) -> builtins.list[ModelInfo]:
         """Fetch every page (limit=50) and return all models."""
         models: list[ModelInfo] = []
         page = 1
@@ -132,8 +137,12 @@ class AsyncModels:
         return ModelsResponse.model_validate(resp)
 
     async def list_all(
-        self, *, inference_types: list[str] | None = None, tags: list[str] | None = None, sort: str | None = None
-    ) -> list[ModelInfo]:
+        self,
+        *,
+        inference_types: builtins.list[str] | None = None,
+        tags: builtins.list[str] | None = None,
+        sort: str | None = None,
+    ) -> builtins.list[ModelInfo]:
         """Fetch every page (limit=50) and return all models."""
         models: list[ModelInfo] = []
         page = 1

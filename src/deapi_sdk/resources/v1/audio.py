@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from deapi_sdk._cards import TTS_KEYS, MUSIC_KEYS, MUSIC_PRICE_KEYS, afill_payload, fill_payload
+from deapi_sdk._cards import MUSIC_KEYS, MUSIC_PRICE_KEYS, TTS_KEYS, afill_payload, fill_payload
 from deapi_sdk._client import AsyncHTTPClient, SyncHTTPClient
 from deapi_sdk._files import FileInput, normalize_file
 from deapi_sdk._payload import drop_none, webhook_fields
@@ -36,7 +36,8 @@ class Audio:
         """Submit a text-to-audio (TTS) job.
 
         Unset ``lang``, ``format``, ``speed`` and ``sample_rate`` are taken from the model's
-        ``info.defaults`` (one catalogue request per client, cached; disable with ``fill_model_defaults=False``). ``ref_audio`` makes the request multipart.
+        ``info.defaults`` (one catalogue request per client, cached; disable with ``fill_model_defaults=False``).
+        ``ref_audio`` makes the request multipart.
         """
         url = self._client._resolve_endpoint("txt2audio")
         data, files = _build_tts_multipart(
@@ -46,10 +47,7 @@ class Audio:
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
         data = fill_payload(self._client, data, TTS_KEYS, form=bool(files), tts=True)
-        if files:
-            resp = self._client.post(url, data=data, files=files)
-        else:
-            resp = self._client.post(url, json=data)
+        resp = self._client.post(url, data=data, files=files) if files else self._client.post(url, json=data)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
         return Job(request_id, self._client, status_url)
@@ -70,7 +68,8 @@ class Audio:
     ) -> PriceResult:
         """Calculate price for TTS (pass ``text`` or ``count_text``).
 
-        Unset ``lang``, ``format``, ``speed`` and ``sample_rate`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``lang``, ``format``, ``speed`` and ``sample_rate`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``).
         """
         url = self._client._resolve_endpoint("txt2audio_price")
@@ -109,7 +108,8 @@ class Audio:
         non-empty ``lyrics`` (use ``"[Instrumental]"`` for instrumentals) and an integer
         ``timesignature`` (2, 3, 4 or 6).
 
-        Unset ``format``, ``inference_steps`` and ``guidance_scale`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``format``, ``inference_steps`` and ``guidance_scale`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("txt2music")
@@ -122,10 +122,7 @@ class Audio:
             webhook_url=webhook_url, webhook_secret=webhook_secret,
         )
         payload = fill_payload(self._client, payload, MUSIC_KEYS, seed=True, form=bool(files))
-        if files:
-            resp = self._client.post(url, data=payload, files=files)
-        else:
-            resp = self._client.post(url, json=payload)
+        resp = self._client.post(url, data=payload, files=files) if files else self._client.post(url, json=payload)
         request_id = resp["data"]["request_id"]
         status_url = self._client._resolve_endpoint("request_status")
         return Job(request_id, self._client, status_url)
@@ -187,7 +184,8 @@ class AsyncAudio:
         """Submit a text-to-audio (TTS) job.
 
         Unset ``lang``, ``format``, ``speed`` and ``sample_rate`` are taken from the model's
-        ``info.defaults`` (one catalogue request per client, cached; disable with ``fill_model_defaults=False``). ``ref_audio`` makes the request multipart.
+        ``info.defaults`` (one catalogue request per client, cached; disable with ``fill_model_defaults=False``).
+        ``ref_audio`` makes the request multipart.
         """
         url = self._client._resolve_endpoint("txt2audio")
         data, files = _build_tts_multipart(
@@ -221,7 +219,8 @@ class AsyncAudio:
     ) -> PriceResult:
         """Calculate price for TTS (pass ``text`` or ``count_text``).
 
-        Unset ``lang``, ``format``, ``speed`` and ``sample_rate`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``lang``, ``format``, ``speed`` and ``sample_rate`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``).
         """
         url = self._client._resolve_endpoint("txt2audio_price")
@@ -260,7 +259,8 @@ class AsyncAudio:
         non-empty ``lyrics`` (use ``"[Instrumental]"`` for instrumentals) and an integer
         ``timesignature`` (2, 3, 4 or 6).
 
-        Unset ``format``, ``inference_steps`` and ``guidance_scale`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``format``, ``inference_steps`` and ``guidance_scale`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
         """
         url = self._client._resolve_endpoint("txt2music")

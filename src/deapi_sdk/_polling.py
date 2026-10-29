@@ -18,7 +18,7 @@ def _timeout_error(request_id: str, max_wait: float) -> JobTimeoutError:
         f"resume waiting with client.jobs.get({request_id!r}).wait() or check it once with "
         f"client.jobs.status({request_id!r})."
     )
-    exc.request_id = request_id  # type: ignore[attr-defined]
+    exc.request_id = request_id
     return exc
 
 

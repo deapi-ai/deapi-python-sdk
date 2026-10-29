@@ -15,7 +15,7 @@ card in ``GET /models`` (``info.limits.output_format``):
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,10 +26,10 @@ class TranscriptWord(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     word: str = ""
-    start: Optional[float] = None
-    end: Optional[float] = None
-    speaker: Optional[str] = None
-    score: Optional[float] = None
+    start: float | None = None
+    end: float | None = None
+    speaker: str | None = None
+    score: float | None = None
 
 
 class TranscriptSegment(BaseModel):
@@ -37,11 +37,11 @@ class TranscriptSegment(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    start: Optional[float] = None
-    end: Optional[float] = None
+    start: float | None = None
+    end: float | None = None
     text: str = ""
-    speaker: Optional[str] = None
-    words: Optional[List[TranscriptWord]] = None
+    speaker: str | None = None
+    words: list[TranscriptWord] | None = None
 
 
 class Transcript(BaseModel):
@@ -56,14 +56,14 @@ class Transcript(BaseModel):
 
     text: str
     format: Literal["json", "text"]
-    language: Optional[str] = None
-    ts_level: Optional[str] = None
-    diarization_available: Optional[bool] = None
-    segments: List[TranscriptSegment] = Field(default_factory=list)
+    language: str | None = None
+    ts_level: str | None = None
+    diarization_available: bool | None = None
+    segments: list[TranscriptSegment] = Field(default_factory=list)
     raw: str = ""
 
 
-def transcript_output_format(model_card: Any) -> Optional[str]:
+def transcript_output_format(model_card: Any) -> str | None:
     """Read ``info.limits.output_format`` from a model card (dict or pydantic model).
 
     Returns ``"json"`` or None (None means the model returns plain text).
@@ -78,7 +78,7 @@ def transcript_output_format(model_card: Any) -> Optional[str]:
     return value if isinstance(value, str) and value else None
 
 
-def _decode_object(raw: Union[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def _decode_object(raw: str | dict[str, Any]) -> dict[str, Any] | None:
     """Return the transcript JSON object, or None if ``raw`` is not one."""
     if isinstance(raw, dict):
         doc: Any = raw
@@ -95,9 +95,9 @@ def _decode_object(raw: Union[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
 
 
 def parse_transcript(
-    raw: Union[str, Dict[str, Any], None],
+    raw: str | dict[str, Any] | None,
     *,
-    output_format: Optional[str] = None,
+    output_format: str | None = None,
 ) -> Transcript:
     """Parse a transcription result (``JobResult.result`` or a downloaded file).
 
@@ -119,7 +119,7 @@ def parse_transcript(
     if doc is None:
         return Transcript(text=raw_str, format="text", raw=raw_str)
 
-    segments: List[TranscriptSegment] = []
+    segments: list[TranscriptSegment] = []
     raw_segments = doc.get("segments")
     if isinstance(raw_segments, list):
         for seg in raw_segments:

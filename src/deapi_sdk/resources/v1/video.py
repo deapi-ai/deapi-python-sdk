@@ -79,7 +79,8 @@ class Video:
     ) -> PriceResult:
         """Calculate price for text-to-video generation.
 
-        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``).
         """
         url = self._client._resolve_endpoint("txt2video_price")
@@ -130,7 +131,8 @@ class Video:
         (``max_ref_images``, ``max_ref_videos``, ``max_ref_audios``, ``max_ref_files``); the API never
         accepts more than 9 images, 1 video or 3 audios. Parts are sent as ``ref_images[0]``, ``ref_images[1]``, ...
 
-        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
 
         Raises:
@@ -173,7 +175,8 @@ class Video:
         More than 2 reference images applies a x2 multiplier, any reference video x3 (the highest wins,
         they do not stack). Reference audio adds no surcharge. The quote does not check model limits.
 
-        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``).
         """
         url = self._client._resolve_endpoint("img2video_price")
@@ -239,7 +242,8 @@ class Video:
     ) -> PriceResult:
         """Calculate price for audio-to-video generation.
 
-        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``).
         """
         url = self._client._resolve_endpoint("aud2video_price")
@@ -271,7 +275,8 @@ class Video:
 
         ``preset`` is honoured only by models whose card has ``supports_presets`` (``available_presets``
         lists the choices: ``fast``, ``balanced``, ``detail``). ``include_metadata`` adds source metadata
-        to the job status; only URL sources have any (a file returns null, uncharged). With ``return_result_in_response=True`` the JSON is also returned
+        to the job status; only URL sources have any (a file returns null, uncharged).
+        With ``return_result_in_response=True`` the JSON is also returned
         inline in ``JobResult.result``; otherwise download ``JobResult.result_url``. Use
         :meth:`get_description` to get a typed :class:`~deapi.types.v1.video.VideoDescription`.
 
@@ -555,7 +560,8 @@ class AsyncVideo:
     ) -> PriceResult:
         """Calculate price for text-to-video generation.
 
-        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``).
         """
         url = self._client._resolve_endpoint("txt2video_price")
@@ -606,7 +612,8 @@ class AsyncVideo:
         (``max_ref_images``, ``max_ref_videos``, ``max_ref_audios``, ``max_ref_files``); the API never
         accepts more than 9 images, 1 video or 3 audios. Parts are sent as ``ref_images[0]``, ``ref_images[1]``, ...
 
-        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1 (random).
 
         Raises:
@@ -649,7 +656,8 @@ class AsyncVideo:
         More than 2 reference images applies a x2 multiplier, any reference video x3 (the highest wins,
         they do not stack). Reference audio adds no surcharge. The quote does not check model limits.
 
-        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``).
         """
         url = self._client._resolve_endpoint("img2video_price")
@@ -715,7 +723,8 @@ class AsyncVideo:
     ) -> PriceResult:
         """Calculate price for audio-to-video generation.
 
-        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one catalogue request per
+        Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's
+        ``info.defaults`` (one catalogue request per
         client, cached; disable with ``fill_model_defaults=False``).
         """
         url = self._client._resolve_endpoint("aud2video_price")
@@ -747,7 +756,8 @@ class AsyncVideo:
 
         ``preset`` is honoured only by models whose card has ``supports_presets`` (``available_presets``
         lists the choices: ``fast``, ``balanced``, ``detail``). ``include_metadata`` adds source metadata
-        to the job status; only URL sources have any (a file returns null, uncharged). With ``return_result_in_response=True`` the JSON is also returned
+        to the job status; only URL sources have any (a file returns null, uncharged).
+        With ``return_result_in_response=True`` the JSON is also returned
         inline in ``JobResult.result``; otherwise download ``JobResult.result_url``. Use
         :meth:`get_description` to get a typed :class:`~deapi.types.v1.video.VideoDescription`.
 

@@ -226,7 +226,7 @@ class TestVideoFileTranscription:
 
     @respx.mock
     def test_from_video_file_price_with_duration(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/videofile2txt/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v1/client/videofile2txt/price-calculation").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.transcription.from_video_file_price(
