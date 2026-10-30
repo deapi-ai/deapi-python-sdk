@@ -7,6 +7,8 @@ Usage:
     python examples/tts_and_audio.py
 """
 
+from pathlib import Path  # noqa: F401 - used by the commented-out examples below
+
 from deapi_sdk import DeapiClient
 
 client = DeapiClient()
@@ -39,7 +41,7 @@ print(f"Audio URL: {result.result_url}")
 #     speed=1.0,
 #     sample_rate=24000,
 #     mode="voice_clone",
-#     ref_audio="voice_sample.wav",   # 3-10 second reference clip
+#     ref_audio=Path("voice_sample.wav"),   # 3-10 second reference clip
 #     ref_text="The original text spoken in the reference.",
 # )
 # result = job.wait()
@@ -75,10 +77,10 @@ print(f"Price for 500 chars: ${price.price}")
 # print("\nComposing music...")
 # job = client.audio.compose(
 #     caption="upbeat electronic track with synth leads and a driving bassline",
-#     model="MusicGen",
-#     duration=30,             # 30 seconds
-#     inference_steps=50,
-#     guidance_scale=3.0,
+#     model="AceStep_1_5_Turbo",
+#     duration=30,             # 30 seconds (10-300)
+#     inference_steps=8,       # fixed for this model
+#     guidance_scale=1.0,      # fixed for this model
 #     seed=42,
 #     format="mp3",
 #     lyrics="Dancing in the moonlight, feeling so alive",

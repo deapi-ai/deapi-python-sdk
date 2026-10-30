@@ -7,6 +7,8 @@ Usage:
     python examples/transcription.py
 """
 
+from pathlib import Path  # noqa: F401 - used by the commented-out examples below
+
 from deapi_sdk import DeapiClient
 
 client = DeapiClient()
@@ -48,7 +50,7 @@ show("WhisperLargeV3")
 #
 # print("\nTranscribing audio file...")
 # job = client.transcription.create(
-#     source_file="interview.mp3",   # accepts str path, Path, bytes, or file-like
+#     source_file=Path("interview.mp3"),   # Path, bytes or a binary file object (a plain str is rejected)
 #     include_ts=False,
 #     model="WhisperLargeV3",
 #     return_result_in_response=True,

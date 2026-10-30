@@ -7,6 +7,8 @@ Usage:
     python examples/basic_image.py
 """
 
+from pathlib import Path  # noqa: F401 - used by the commented-out examples below
+
 from deapi_sdk import DeapiClient
 
 client = DeapiClient()
@@ -48,7 +50,7 @@ if result.results_alt_formats:
 # print("\nTransforming image...")
 # job = client.images.transform(
 #     prompt="make it look like a watercolor painting",
-#     image="photo.jpg",          # accepts str path, Path, bytes, or file-like
+#     image=Path("photo.jpg"),          # Path, bytes or a binary file object (a plain str is rejected)
 #     model="QwenImageEdit_Plus_NF4",
 #     steps=30,
 #     seed=42,
@@ -61,7 +63,7 @@ if result.results_alt_formats:
 # Uncomment to run — requires an image file:
 #
 # print("\nUpscaling image...")
-# job = client.images.upscale(image="low_res.png", model="RealESRGAN_x4")
+# job = client.images.upscale(image=Path("low_res.png"), model="RealESRGAN_x4")
 # result = job.wait()
 # print(f"Upscaled: {result.result_url}")
 
@@ -70,7 +72,7 @@ if result.results_alt_formats:
 # Uncomment to run — requires an image file:
 #
 # print("\nRemoving background...")
-# job = client.images.remove_background(image="photo.png", model="Ben2")
+# job = client.images.remove_background(image=Path("photo.png"), model="Ben2")
 # result = job.wait()
 # print(f"Background removed: {result.result_url}")
 
