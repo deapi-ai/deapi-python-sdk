@@ -45,6 +45,9 @@ client = DeapiClient(
     max_retries: int | None = None,        # Retry attempts (default 3), see "Retry policy"
     api_version: str | None = None,        # Falls back to DEAPI_API_VERSION (only "v2" is accepted, default)
     fill_model_defaults: bool | None = None,  # Falls back to DEAPI_FILL_MODEL_DEFAULTS (default on)
+    max_retry_after: float | None = None,  # Cap on a 429 Retry-After sleep in seconds (default 60.0)
+    http_client: httpx.Client | None = None,  # Share one httpx client (connection pool) across SDK clients
+    owns_http_client: bool | None = None,  # Close the injected http_client on close() (default: no)
 )
 ```
 
@@ -89,7 +92,8 @@ Explicit values always win. Disable with `DeapiClient(fill_model_defaults=False)
 
 ## Conventions
 
-- `FileInput` is `str` (path), `Path`, `bytes` or a binary file-like object.
+- `FileInput` is `Path`, `bytes` or a binary file object. A plain `str` is rejected (wrap a path in
+  `Path(...)`), so untrusted input can never make the SDK read a local file.
 - Every job method returns a `Job` and has a `*_price` counterpart returning `PriceResult`. Price
   methods take the same model parameters (not `webhook_*`). The `enhance_prompt` fee is billed on
   the job and is **not** included in a price quote.
@@ -327,7 +331,7 @@ present, else downloads `result_url` without the API key.
 client.video.upscale(*, video: FileInput, model: str, webhook_url=None, webhook_secret=None) -> Job
 ```
 
-`upscale_price()` takes `model` plus `video` **or** `width` + `height` + `duration` (seconds). `upscale()` takes `scale` (2 or 4) on models whose card has a `scale` range, e.g. FlashVSR_Tiny.
+`upscale_price()` takes `model` plus `video` **or** `width` + `height` + `duration` (seconds). `upscale()` takes `scale` on models whose card has a `scale` range (FlashVSR_Tiny: 2-4).
 
 Video character replacement and video background removal were removed in 0.5.0; use `animate()`
 with the character as `ref_images` and the source motion as `ref_videos` to replace a character.
@@ -459,7 +463,7 @@ parameters.
 ```python
 response = client.models.list(
     *,
-    limit: int | None = None,                  # page size (default 50, server cap 100)
+    limit: int | None = None,                  # page size (default 50, server cap 50)
     page: int = 1,
     inference_types: list[str] | None = None,  # e.g. ["txt2img", "img2img"]
     tags: list[str] | None = None,             # e.g. ["new", "beta"]
@@ -603,7 +607,7 @@ function) and `async for event in rt.events()`.
 
 - WebSocket events drive progress and completion. On `done` the SDK fetches the final `JobResult`
   over HTTP (fresh signed `result_url`, all fields).
-- Failed jobs are **not** announced over WebSocket. `wait()` checks the job status over HTTP right
+- Failed jobs are **usually not** announced over WebSocket. `wait()` checks the job status over HTTP right
   away, every `poll_interval` seconds, and right after every reconnect. A failed job is returned
   with `status == "error"`, exactly like `Job.wait()`; it is not raised.
 - Open the connection **before** submitting jobs so no event is missed. A job that finished earlier

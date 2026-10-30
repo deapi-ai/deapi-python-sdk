@@ -30,18 +30,17 @@ print(f"Audio URL: {result.result_url}")
 
 # --- TTS with voice cloning ---
 
-# Uncomment to run — requires a reference audio file (3-10 seconds):
+# Uncomment to run — requires a reference audio file (5-15 seconds). Voice cloning needs a
+# model whose card has supports_voice_clone (here Qwen3_TTS_12Hz_1_7B_Base; Kokoro does not clone).
 #
 # print("\nCloning voice...")
 # job = client.audio.synthesize(
 #     text="This is generated using a cloned voice.",
-#     model="Kokoro",
-#     lang="en-us",
-#     format="wav",
-#     speed=1.0,
-#     sample_rate=24000,
+#     model="Qwen3_TTS_12Hz_1_7B_Base",
+#     lang="English",
+#     format="mp3",
 #     mode="voice_clone",
-#     ref_audio=Path("voice_sample.wav"),   # 3-10 second reference clip
+#     ref_audio=Path("voice_sample.wav"),   # 5-15 second reference clip
 #     ref_text="The original text spoken in the reference.",
 # )
 # result = job.wait()

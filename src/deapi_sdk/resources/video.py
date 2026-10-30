@@ -43,7 +43,7 @@ class Video:
         Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one
         catalogue request per client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1
         (random). Other parameters left as ``None`` are not sent.
-        ``enhance_prompt`` rewrites the prompt server-side (v2; needs a prompt-booster guide for the model).
+        ``enhance_prompt`` rewrites the prompt server-side (needs a prompt-booster guide for the model).
         """
         url = self._client._resolve_endpoint("txt2video")
         payload = _build_txt2video_payload(
@@ -263,10 +263,10 @@ class Video:
         webhook_url: str | None = None,
         webhook_secret: str | None = None,
     ) -> Job:
-        """Submit a video description job (v2, ``videos/descriptions``).
+        """Submit a video description job (``videos/descriptions``).
 
         Produces a timestamped index of what happens on screen (events, scenes, metadata); it reads the
-        picture, not the audio (use ``audio.transcribe`` for speech). Pass exactly one source: ``video_url``
+        picture, not the audio (use ``transcription.create`` for speech). Pass exactly one source: ``video_url``
         (YouTube, Twitter/X, Twitch, Kick, TikTok) or ``video_file`` (file upload).
 
         ``preset`` is honoured only by models whose card has ``supports_presets`` (``available_presets``
@@ -413,7 +413,7 @@ class AsyncVideo:
         Unset ``width``, ``height``, ``frames`` and ``fps`` are taken from the model's ``info.defaults`` (one
         catalogue request per client, cached; disable with ``fill_model_defaults=False``); ``seed`` defaults to -1
         (random). Other parameters left as ``None`` are not sent.
-        ``enhance_prompt`` rewrites the prompt server-side (v2; needs a prompt-booster guide for the model).
+        ``enhance_prompt`` rewrites the prompt server-side (needs a prompt-booster guide for the model).
         """
         url = self._client._resolve_endpoint("txt2video")
         payload = _build_txt2video_payload(
@@ -633,10 +633,10 @@ class AsyncVideo:
         webhook_url: str | None = None,
         webhook_secret: str | None = None,
     ) -> AsyncJob:
-        """Submit a video description job (v2, ``videos/descriptions``).
+        """Submit a video description job (``videos/descriptions``).
 
         Produces a timestamped index of what happens on screen (events, scenes, metadata); it reads the
-        picture, not the audio (use ``audio.transcribe`` for speech). Pass exactly one source: ``video_url``
+        picture, not the audio (use ``transcription.create`` for speech). Pass exactly one source: ``video_url``
         (YouTube, Twitter/X, Twitch, Kick, TikTok) or ``video_file`` (file upload).
 
         ``preset`` is honoured only by models whose card has ``supports_presets`` (``available_presets``

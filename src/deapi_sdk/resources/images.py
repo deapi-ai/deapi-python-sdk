@@ -41,7 +41,7 @@ class Images:
         (random). ``seed``, ``steps`` and ``guidance`` are otherwise only sent when set.
         ``quality`` is a model tier such as
         ``"low"``/``"medium"``/``"high"``. ``enhance_prompt=True`` boosts the prompt inside
-        the job (v2; the boost fee is billed on the job).
+        the job (the boost fee is billed on the job).
         """
         url = self._client._resolve_endpoint("txt2img")
         payload = _build_txt2img_payload(
@@ -258,7 +258,7 @@ class AsyncImages:
         (random). ``seed``, ``steps`` and ``guidance`` are otherwise only sent when set.
         ``quality`` is a model tier such as
         ``"low"``/``"medium"``/``"high"``. ``enhance_prompt=True`` boosts the prompt inside
-        the job (v2; the boost fee is billed on the job).
+        the job (the boost fee is billed on the job).
         """
         url = self._client._resolve_endpoint("txt2img")
         payload = _build_txt2img_payload(

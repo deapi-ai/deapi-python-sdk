@@ -123,7 +123,7 @@ class DeapiClient:
     Usage::
 
         client = DeapiClient(api_key="sk-...")
-        job = client.images.generate(prompt="a cat in space", model="sdxl", width=1024, height=1024, seed=42)
+        job = client.images.generate(prompt="a cat in space", model="Flux1schnell", width=1024, height=1024, seed=42)
         result = job.wait()
         print(result.result_url)
 
@@ -227,7 +227,7 @@ class AsyncDeapiClient:
     Usage::
 
         async with AsyncDeapiClient(api_key="sk-...") as client:
-            job = await client.images.generate(prompt="a cat in space", model="sdxl", width=1024, height=1024, seed=42)
+            job = await client.images.generate(prompt="a cat in space", model="Flux1schnell", seed=42)
             result = await job.wait()
             print(result.result_url)
     """

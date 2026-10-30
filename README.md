@@ -25,7 +25,7 @@ Generate images, videos, audio, transcriptions, embeddings, and more — all thr
 - **Model-card defaults** — `width`, `height`, `steps`, `fps`, `seed`, ... are optional; the SDK fills them from the model card
 - **Type-safe** — full type hints, Pydantic v2 models, `py.typed` marker
 - **Webhook verification** — HMAC-SHA256 signature validation utility
-- **File flexibility** — accepts file paths, `Path` objects, bytes, or file-like objects
+- **File flexibility** — accepts `Path` objects, bytes, or binary file objects (never a bare `str` path)
 
 ## Installation
 
@@ -51,7 +51,7 @@ For development (`pytest` runs from the repo root):
 git clone https://github.com/deapi-ai/deapi-python-sdk.git
 cd deapi-python-sdk
 pip install -e ".[dev]"
-pytest
+pytest                     # unit tests only; `pytest -m integration` runs paid tests against production
 ```
 
 ## API keys
@@ -107,6 +107,7 @@ client = DeapiClient(
 | `app_key` (`client.realtime()`) | `DEAPI_WS_APP_KEY` | public app key |
 | `timeout` | — | `30.0` |
 | `max_retries` | — | `3` |
+| `max_retry_after` | — | `60.0` (cap on a 429 `Retry-After` sleep, in seconds) |
 
 ```python
 client = DeapiClient()                # reads the environment
@@ -182,7 +183,7 @@ job = client.video.animate(
 # Mutually exclusive with first/last frame images.
 job = client.video.animate(
     prompt="<Picture 1> walks through the scene from <Video 1>, speaking <Audio 1>",
-    model="<model-with-reference-support>",
+    model="MiniMaxH3_33B_Turbo_INT8",    # a model whose card has supports_*_refs
     ref_images=[Path("character.png")],
     ref_videos=[Path("scene.mp4")],
     ref_audios=[Path("voice.mp3")],

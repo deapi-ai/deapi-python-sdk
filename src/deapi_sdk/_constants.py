@@ -31,7 +31,7 @@ ENDPOINTS: dict[str, str] = {
     "aud2video_price": "videos/audio-syncs/price",
     "vid_description": "videos/descriptions",
     "vid_description_price": "videos/descriptions/price",
-    # Transcription (unified — single endpoint replaces all v1 transcription routes)
+    # Transcription (one endpoint for audio and video, URL or file)
     "transcribe": "audio/transcriptions",
     "transcribe_price": "audio/transcriptions/price",
     # Embeddings
@@ -40,7 +40,7 @@ ENDPOINTS: dict[str, str] = {
     # Image-to-text (OCR)
     "img2txt": "images/ocr",
     "img2txt_price": "images/ocr/price",
-    # Prompts (unified enhancer — replaces all v1 prompt booster routes)
+    # Prompts (one prompt booster endpoint, selected by `type`)
     "prompts_enhance": "prompts/enhancements",
     "prompts_enhance_price": "prompts/enhancements/price",
     # Account (ADMIN key only — an API-role key gets 403 insufficient_permissions)
