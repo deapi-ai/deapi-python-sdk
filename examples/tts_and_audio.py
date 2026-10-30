@@ -77,7 +77,7 @@ print(f"Price for 500 chars: ${price.price}")
 # print("\nComposing music...")
 # job = client.audio.compose(
 #     caption="upbeat electronic track with synth leads and a driving bassline",
-#     model="AceStep_1_5_Turbo",
+#     model="AceStep_1_5_XL_Turbo_INT8",
 #     duration=30,             # 30 seconds (10-300)
 #     inference_steps=8,       # fixed for this model
 #     guidance_scale=1.0,      # fixed for this model

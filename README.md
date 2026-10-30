@@ -224,7 +224,7 @@ job = client.audio.synthesize(
 # Text-to-music, optionally with a style reference clip
 job = client.audio.compose(
     caption="upbeat electronic track with synth leads",
-    model="AceStep_1_5_Turbo",
+    model="AceStep_1_5_XL_Turbo_INT8",
     duration=30,
     reference_audio=Path("style.mp3"),
 )
