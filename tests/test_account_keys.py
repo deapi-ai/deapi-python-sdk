@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import respx
@@ -63,7 +63,7 @@ class TestAccountSync:
     def test_usage_params(self, client_v2: DeapiClient) -> None:
         route = respx.get(f"{BASE}/account/usage").mock(return_value=httpx.Response(200, json=USAGE))
         rep = client_v2.account.usage(
-            from_=datetime(2026, 1, 1, tzinfo=timezone.utc), to="2026-01-31", group_by="key", foo="bar",
+            from_=datetime(2026, 1, 1, tzinfo=UTC), to="2026-01-31", group_by="key", foo="bar",
         )
         p = route.calls.last.request.url.params
         assert p["from"] == "2026-01-01T00:00:00+00:00"

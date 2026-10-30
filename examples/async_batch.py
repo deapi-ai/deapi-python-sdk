@@ -9,7 +9,7 @@ Usage:
 
 import asyncio
 
-from deapi import AsyncDeapiClient
+from deapi_sdk import AsyncDeapiClient
 
 
 async def main() -> None:

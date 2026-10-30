@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import math
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
 
@@ -69,8 +69,8 @@ class BaseClient:
             except (TypeError, ValueError, IndexError):
                 return 0.0
             if when.tzinfo is None:
-                when = when.replace(tzinfo=timezone.utc)
-            return max((when - datetime.now(timezone.utc)).total_seconds(), 0.0)
+                when = when.replace(tzinfo=UTC)
+            return max((when - datetime.now(UTC)).total_seconds(), 0.0)
         if math.isnan(seconds) or math.isinf(seconds):
             return 0.0
         return max(seconds, 0.0)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import weakref
 from typing import Any
 
 import httpx
@@ -24,10 +25,12 @@ from deapi_sdk._exceptions import (
     PaymentRequiredError,
     PermissionDeniedError,
     RateLimitError,
+    RealtimeError,
     ServerError,
     ValidationError,
 )
 from deapi_sdk._polling import AsyncJob, AsyncJobs, Job, Jobs
+from deapi_sdk._realtime import AsyncRealtime, Realtime
 from deapi_sdk._types import InferenceType, JobStatus
 from deapi_sdk._version import __version__
 from deapi_sdk.transcript import (
@@ -37,7 +40,15 @@ from deapi_sdk.transcript import (
     parse_transcript,
     transcript_output_format,
 )
-from deapi_sdk.types.common import Balance, JobResult, JobSubmission, ModelInfo, ModelsResponse, PriceResult
+from deapi_sdk.types.common import (
+    Balance,
+    JobResult,
+    JobStatusEvent,
+    JobSubmission,
+    ModelInfo,
+    ModelsResponse,
+    PriceResult,
+)
 from deapi_sdk.types.v1.video import VideoDescription, VideoEvent, parse_video_description
 from deapi_sdk.webhook import InvalidSignatureError, WebhookEvent, WebhookEventData, construct_event, verify_signature
 
@@ -199,6 +210,7 @@ class DeapiClient:
         self._http_client = SyncHTTPClient(
             self._config, http_client, owns_http_client=owns_http_client
         )
+        self._realtime_sessions: weakref.WeakSet[Realtime] = weakref.WeakSet()
         self._attach_resources()
 
     def _attach_resources(self) -> None:
@@ -214,8 +226,34 @@ class DeapiClient:
         resp = self._http_client.get(url)
         return Balance.model_validate(resp.get("data", resp))
 
+    def realtime(
+        self,
+        client_id: str | int | None = None,
+        *,
+        ws_url: str | None = None,
+        app_key: str | None = None,
+        connect_timeout: float = 30.0,
+    ) -> Realtime:
+        """Real-time job status updates over WebSocket (needs ``pip install "deapi-sdk[ws]"``).
+
+        ``client_id`` is the Client ID shown in your deAPI dashboard; when omitted,
+        ``DEAPI_CLIENT_ID`` is used. Servers acting for many users should always
+        pass it explicitly. ``ws_url`` (``DEAPI_WS_URL``) and ``app_key``
+        (``DEAPI_WS_APP_KEY``) default to the production server.
+
+        The connection opens on ``with`` / ``connect()``. It is closed together
+        with this client.
+        """
+        session = Realtime(
+            self._http_client, client_id=client_id, ws_url=ws_url, app_key=app_key, connect_timeout=connect_timeout
+        )
+        self._realtime_sessions.add(session)
+        return session
+
     def close(self) -> None:
-        """Close the underlying HTTP client."""
+        """Close open realtime sessions and the underlying HTTP client."""
+        for session in list(self._realtime_sessions):
+            session.close()
         self._http_client.close()
 
     def __enter__(self) -> DeapiClient:
@@ -275,6 +313,7 @@ class AsyncDeapiClient:
         self._http_client = AsyncHTTPClient(
             self._config, http_client, owns_http_client=owns_http_client
         )
+        self._realtime_sessions: weakref.WeakSet[AsyncRealtime] = weakref.WeakSet()
         self._attach_resources()
 
     def _attach_resources(self) -> None:
@@ -290,8 +329,35 @@ class AsyncDeapiClient:
         resp = await self._http_client.get(url)
         return Balance.model_validate(resp.get("data", resp))
 
+    def realtime(
+        self,
+        client_id: str | int | None = None,
+        *,
+        ws_url: str | None = None,
+        app_key: str | None = None,
+        connect_timeout: float = 30.0,
+    ) -> AsyncRealtime:
+        """Real-time job status updates over WebSocket (needs ``pip install "deapi-sdk[ws]"``).
+
+        ``client_id`` is the Client ID shown in your deAPI dashboard; when omitted,
+        ``DEAPI_CLIENT_ID`` is used. Servers acting for many users should always
+        pass it explicitly. ``ws_url`` (``DEAPI_WS_URL``) and ``app_key``
+        (``DEAPI_WS_APP_KEY``) default to the production server.
+
+        The connection opens on ``async with`` /
+        ``await connect()``. It is closed together
+        with this client.
+        """
+        session = AsyncRealtime(
+            self._http_client, client_id=client_id, ws_url=ws_url, app_key=app_key, connect_timeout=connect_timeout
+        )
+        self._realtime_sessions.add(session)
+        return session
+
     async def close(self) -> None:
-        """Close the underlying HTTP client."""
+        """Close open realtime sessions and the underlying HTTP client."""
+        for session in list(self._realtime_sessions):
+            await session.close()
         await self._http_client.close()
 
     async def __aenter__(self) -> AsyncDeapiClient:
@@ -310,6 +376,10 @@ __all__ = [
     "AsyncJob",
     "AsyncJobs",
     "Jobs",
+    # Realtime (WebSocket)
+    "AsyncRealtime",
+    "Realtime",
+    "JobStatusEvent",
     # Types
     "Balance",
     "InferenceType",
@@ -344,6 +414,7 @@ __all__ = [
     "PermissionDeniedError",
     "NotFoundError",
     "RateLimitError",
+    "RealtimeError",
     "ServerError",
     "ValidationError",
     # Webhook

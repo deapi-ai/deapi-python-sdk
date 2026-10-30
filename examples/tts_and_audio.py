@@ -7,7 +7,7 @@ Usage:
     python examples/tts_and_audio.py
 """
 
-from deapi import DeapiClient
+from deapi_sdk import DeapiClient
 
 client = DeapiClient()
 

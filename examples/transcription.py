@@ -7,7 +7,7 @@ Usage:
     python examples/transcription.py
 """
 
-from deapi import DeapiClient
+from deapi_sdk import DeapiClient
 
 client = DeapiClient()
 

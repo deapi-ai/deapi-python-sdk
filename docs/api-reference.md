@@ -1,6 +1,6 @@
 # DeAPI Python SDK — API Reference
 
-Reference for the classes, methods and types in the `deapi` package. It describes API **v2** (the
+Reference for the classes, methods and types in the `deapi_sdk` package. It describes API **v2** (the
 default). The HTTP API itself is documented at <https://docs.deapi.ai>.
 
 Install: `pip install git+https://github.com/deapi-ai/deapi-python-sdk.git` (not on PyPI yet;
@@ -22,6 +22,7 @@ Install: `pip install git+https://github.com/deapi-ai/deapi-python-sdk.git` (not
 - [Resource: account (v2)](#resource-account-v2)
 - [Resource: keys (v2)](#resource-keys-v2)
 - [Job Polling](#job-polling)
+- [Realtime (WebSocket)](#realtime-websocket)
 - [Types & Models](#types--models)
 - [Exceptions](#exceptions)
 - [Webhook Utilities](#webhook-utilities)
@@ -34,7 +35,7 @@ Install: `pip install git+https://github.com/deapi-ai/deapi-python-sdk.git` (not
 ### `DeapiClient`
 
 ```python
-from deapi import DeapiClient
+from deapi_sdk import DeapiClient
 
 client = DeapiClient(
     *,
@@ -69,7 +70,7 @@ with DeapiClient() as client:
 Same API surface, every method is `async`.
 
 ```python
-from deapi import AsyncDeapiClient
+from deapi_sdk import AsyncDeapiClient
 
 async with AsyncDeapiClient() as client:
     balance = await client.balance()
@@ -386,8 +387,8 @@ Uses the inline `result` if present, otherwise downloads `result_url` with a pla
 | `"json"` | `WhisperLargeV3Ct2` | Always a JSON document: `text`, `language`, `segments` (`start`, `end`, `speaker`, `words`) |
 | `null` | `WhisperLargeV3` | Plain text; timestamps inline (`[0:50 - 1:49] ...`) when requested |
 
-`deapi.parse_transcript(raw, output_format=None)` does the parsing without a client and never
-raises. `deapi.transcript_output_format(model_card)` reads the card field.
+`deapi_sdk.parse_transcript(raw, output_format=None)` does the parsing without a client and never
+raises. `deapi_sdk.transcript_output_format(model_card)` reads the card field.
 
 ```python
 class Transcript(BaseModel):
@@ -570,6 +571,65 @@ has the same interface with `async` methods.
 
 ---
 
+## Realtime (WebSocket)
+
+Live job status over one WebSocket connection. Needs the optional extra:
+`pip install "deapi-sdk[ws] @ git+https://github.com/deapi-ai/deapi-python-sdk.git"` (installs
+`websockets` 17.x). Without it, connecting raises `ImportError`.
+
+### `client.realtime()`
+
+```python
+rt = client.realtime(
+    client_id: str | int | None = None,  # "Client ID" from the dashboard; falls back to DEAPI_CLIENT_ID
+    *,
+    ws_url: str | None = None,           # falls back to DEAPI_WS_URL (default "wss://soketi.deapi.ai")
+    app_key: str | None = None,          # falls back to DEAPI_WS_APP_KEY (default: the public app key)
+    connect_timeout: float = 30.0,
+) -> Realtime                            # AsyncDeapiClient: AsyncRealtime
+```
+
+`client_id` is an opaque string. The environment variable is used only when the argument is not
+passed; an explicit argument always wins. Servers handling many users should pass it per user.
+`ws_url` and `app_key` are only needed for non-production environments.
+
+### `Realtime` / `AsyncRealtime`
+
+```python
+class Realtime:
+    def connect() -> None               # open the socket and subscribe to your channel
+    def close() -> None
+    connected: bool                     # property: is the socket currently up
+    def wait(
+        job_or_request_id: Job | str,
+        *,
+        on_progress: Callable[[JobStatusEvent], None] | None = None,
+        max_wait: float = 300.0,
+        poll_interval: float = 10.0,
+    ) -> JobResult                      # raises JobTimeoutError (has .request_id) after max_wait
+    def events() -> Iterator[JobStatusEvent]   # all status events on the channel; ends when closed
+```
+
+`with client.realtime(...) as rt:` connects on enter and closes on exit (`connect()` / `close()` do
+the same explicitly). `AsyncRealtime` has the same interface with `async` methods: `async with`,
+`await rt.connect()`, `await rt.close()`, `await rt.wait(...)` (`on_progress` may be a plain or async
+function) and `async for event in rt.events()`.
+
+`wait()` accepts a `Job` / `AsyncJob` or a request id:
+
+- WebSocket events drive progress and completion. On `done` the SDK fetches the final `JobResult`
+  over HTTP (fresh signed `result_url`, all fields).
+- Failed jobs are **not** announced over WebSocket. `wait()` checks the job status over HTTP right
+  away, every `poll_interval` seconds, and right after every reconnect. A failed job is returned
+  with `status == "error"`, exactly like `Job.wait()`; it is not raised.
+- Open the connection **before** submitting jobs so no event is missed. A job that finished earlier
+  is still returned thanks to the immediate check.
+
+The connection reconnects automatically with exponential backoff and re-subscribes. Events sent
+while disconnected are lost; `wait()` compensates with the HTTP check after reconnecting.
+
+---
+
 ## Types & Models
 
 ```python
@@ -590,6 +650,13 @@ class JobResult(BaseModel):
     prompt_boosted: bool | None
     prompt_boost: PromptBoost | None
 
+class JobStatusEvent(BaseModel):            # realtime status event
+    request_id: str
+    status: JobStatus | str                 # "processing" (repeated with growing progress) | "done"; unknown values kept as str
+    progress: float | None                  # 0-100
+    preview: str | None                     # base64 data URI preview (image jobs)
+    result_url: str | None                  # only on "done"; signed, expires
+
 class PriceResult(BaseModel):  price: float
 class Balance(BaseModel):      balance: float
 class ModelsResponse(BaseModel):  data: list[ModelInfo]; links; meta   # meta.current_page, last_page, per_page, total
@@ -601,15 +668,15 @@ v2 account and key types: `Account`, `AutoTopUp`, `Payment`, `PaymentsPage`, `Us
 secret), `ApiKeyCreated` (adds `secret`), `ApiKeysPage`; import from `deapi.types.v2`.
 
 ```python
-class JobStatus(str, Enum):  PENDING, PROCESSING, DONE, ERROR
-class InferenceType(str, Enum):  TXT2IMG, IMG2IMG, TXT2AUDIO, TXT2MUSIC, ...   # see deapi._types
+class JobStatus(StrEnum):  PENDING, PROCESSING, DONE, ERROR
+class InferenceType(StrEnum):  TXT2IMG, IMG2IMG, TXT2AUDIO, TXT2MUSIC, ...   # see deapi_sdk._types
 ```
 
 ---
 
 ## Exceptions
 
-Import everything from the top-level package: `from deapi import ...`.
+Import everything from the top-level package: `from deapi_sdk import ...`.
 
 ```
 DeapiError                              # .message  .status_code  .body  .code
@@ -628,6 +695,7 @@ DeapiError                              # .message  .status_code  .body  .code
 ├── RateLimitError                      # 429  .retry_after  .limit_type
 ├── ServerError                         # 5xx
 ├── NetworkError                        # connection failure / timeout
+├── RealtimeError                       # fatal WebSocket connection / subscription failure; .close_code
 └── JobTimeoutError                     # polling exceeded max_wait; .request_id
 ```
 
@@ -654,7 +722,15 @@ class RateLimitError(DeapiError):
 
 class JobTimeoutError(DeapiError):
     request_id: str | None              # resume: client.jobs.get(request_id).wait()
+
+class RealtimeError(DeapiError):
+    close_code: int | None              # WebSocket close code, when caused by one
 ```
+
+`RealtimeError` covers fatal realtime failures, such as the channel authorization being refused
+(a `client_id` that does not belong to this API key) or the server refusing the connection. HTTP
+authentication failures during the channel authorization surface as the usual `AuthenticationError`
+/ `PermissionDeniedError`.
 
 `KeyLimitExceededError` (402) is the **key's** spend limit; `InsufficientBalanceError` (422) means
 the **account** has no credit. They need different fixes (raise the key's limit vs. top up).
@@ -681,7 +757,7 @@ check your jobs before resubmitting.
 ## Webhook Utilities
 
 ```python
-from deapi.webhook import verify_signature, construct_event, InvalidSignatureError
+from deapi_sdk.webhook import verify_signature, construct_event, InvalidSignatureError
 ```
 
 ### `verify_signature()`
@@ -731,3 +807,6 @@ class WebhookEventData(BaseModel):
 | `DEAPI_BASE_URL` | `https://api.deapi.ai` | API base URL |
 | `DEAPI_API_VERSION` | `v2` | API version (`v1` = legacy) |
 | `DEAPI_FILL_MODEL_DEFAULTS` | on | `0` stops the SDK filling unset parameters from model-card defaults |
+| `DEAPI_CLIENT_ID` | *(none)* | Client ID for `client.realtime()` when `client_id` is not passed |
+| `DEAPI_WS_URL` | `wss://soketi.deapi.ai` | WebSocket URL (non-production environments only) |
+| `DEAPI_WS_APP_KEY` | public app key | WebSocket app key (non-production environments only) |
