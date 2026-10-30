@@ -771,6 +771,10 @@ class WebhookEvent(BaseModel):
     data: WebhookEventData
     type: str                       # property, alias for event
 
+class JobPrice(BaseModel):
+    amount: float
+    is_estimated: bool                  # job.completed may report an estimate first
+
 class WebhookEventData(BaseModel):     # unknown extra fields are kept (model_extra)
     job_request_id: str
     status: str                         # "processing" | "done" | "error"
@@ -780,6 +784,7 @@ class WebhookEventData(BaseModel):     # unknown extra fields are kept (model_ex
     completed_at: str | None            # job.completed
     result_url: str | None              # job.completed
     processing_time_ms: int | None      # job.completed
+    price: JobPrice | None              # job.completed, job.failed (on failure: read jobs.status for the final amount)
     failed_at: str | None               # job.failed
     error_code: str | None              # job.failed: WORKER_TIMEOUT | WORKER_ERROR | PROCESSING_ERROR
     error_reason: str | None            # job.failed: open list, e.g. SOURCE_PRIVATE, TIMEOUT

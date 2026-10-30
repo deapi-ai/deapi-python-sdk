@@ -32,7 +32,7 @@ ProgressCallback = Callable[[JobStatusEvent], Any]
 """Called with every status event of the awaited job. The async API also accepts ``async def`` callbacks."""
 
 _TERMINAL = (JobStatus.DONE, JobStatus.ERROR)
-# After the socket reports ``done``, re-check the job over HTTP this often until it agrees.
+# After the socket reports a terminal status, re-check the job over HTTP this often until it agrees.
 _CONFIRM_INTERVAL = 1.0
 # Longest single blocking wait in the sync API, so Ctrl+C stays responsive.
 _SYNC_WAIT_SLICE = 0.5
@@ -190,9 +190,10 @@ class AsyncRealtime:
 
         Status events from the socket drive ``on_progress`` and completion; the
         returned result always comes from the job status endpoint (fresh
-        ``result_url``, all fields). Failed jobs are not announced over the
-        socket, so the status is also checked over HTTP right away, every
-        ``poll_interval`` seconds and after each reconnect. A failed job is
+        ``result_url``, all fields). Failed jobs are usually not announced over
+        the socket, so the status is also checked over HTTP right away, every
+        ``poll_interval`` seconds, after each reconnect and as soon as the socket
+        reports ``done`` or ``error``. A failed job is
         returned with ``status == "error"``, like :meth:`AsyncJob.wait`.
 
         Raises :class:`JobTimeoutError` after ``max_wait`` seconds.
@@ -210,7 +211,7 @@ class AsyncRealtime:
             if _is_terminal(result):
                 return result
             next_check = loop.time() + poll_interval
-            done_seen = False  # the socket said "done"; confirm over HTTP until the endpoint agrees
+            done_seen = False  # the socket reported done/error; confirm over HTTP until the endpoint agrees
             while True:
                 now = loop.time()
                 if now >= deadline:
@@ -227,7 +228,7 @@ class AsyncRealtime:
                         outcome = on_progress(item)
                         if inspect.isawaitable(outcome):
                             await outcome
-                    if item.status != JobStatus.DONE:
+                    if item.status not in _TERMINAL:
                         continue
                     done_seen = True
                     next_check = min(next_check, loop.time())
@@ -425,7 +426,7 @@ class Realtime:
             if _is_terminal(result):
                 return result
             next_check = time.monotonic() + poll_interval
-            done_seen = False  # the socket said "done"; confirm over HTTP until the endpoint agrees
+            done_seen = False  # the socket reported done/error; confirm over HTTP until the endpoint agrees
             while True:
                 now = time.monotonic()
                 if now >= deadline:
@@ -436,7 +437,7 @@ class Realtime:
                 if isinstance(item, JobStatusEvent):
                     if on_progress is not None:
                         on_progress(item)
-                    if item.status != JobStatus.DONE:
+                    if item.status not in _TERMINAL:
                         continue
                     done_seen = True
                     next_check = min(next_check, time.monotonic())

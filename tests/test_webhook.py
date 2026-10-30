@@ -236,6 +236,29 @@ class TestEventFields:
         assert event.data.error_code is None
         assert event.data.retryable is None
 
+    def test_price_on_completed_and_failed(self) -> None:
+        completed = self._construct(
+            {"job_request_id": "job-1", "status": "done", "price": {"amount": 0.0123, "is_estimated": True}},
+            "job.completed",
+        )
+        assert completed.data.price is not None
+        assert completed.data.price.amount == 0.0123
+        assert completed.data.price.is_estimated is True
+        failed = self._construct(
+            {"job_request_id": "job-1", "status": "error", "price": {"amount": 0, "is_estimated": False}},
+            "job.failed",
+        )
+        assert failed.data.price is not None
+        assert failed.data.price.amount == 0.0
+        assert failed.data.price.is_estimated is False
+        assert failed.data.model_extra == {}
+
+    def test_price_missing_or_null(self) -> None:
+        processing = self._construct({"job_request_id": "job-1", "status": "processing"}, "job.processing")
+        assert processing.data.price is None
+        null_price = self._construct({"job_request_id": "job-1", "status": "done", "price": None}, "job.completed")
+        assert null_price.data.price is None
+
     def test_unknown_fields_still_kept(self) -> None:
         event = self._construct({"job_request_id": "job-1", "status": "done", "new_field": 1}, "job.completed")
         assert event.data.model_extra == {"new_field": 1}

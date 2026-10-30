@@ -387,6 +387,18 @@ class TestWait:
         assert result.status == JobStatus.ERROR
         assert route.calls == 3
 
+    def test_error_event_triggers_immediate_check(
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+    ) -> None:
+        route = Statuses(processing, failed, on_call=lambda n: push(server, "req-1", "error") if n == 0 else None)
+        api.get(status_url("req-1")).mock(side_effect=route)
+        started = time.monotonic()
+        with make_rt(client, server) as rt:
+            result = rt.wait("req-1", poll_interval=30)
+        assert result.status == JobStatus.ERROR
+        assert route.calls == 2
+        assert time.monotonic() - started < 3
+
     def test_done_event_before_rest_agrees(
         self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
@@ -893,6 +905,18 @@ class TestAsyncWait:
         async with make_async_rt(async_client, server) as rt:
             result = await rt.wait("req-1", poll_interval=0.05, max_wait=5)
         assert result.status == JobStatus.ERROR
+
+    async def test_error_event_triggers_immediate_check(
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+    ) -> None:
+        route = Statuses(processing, failed, on_call=lambda n: push(server, "req-1", "error") if n == 0 else None)
+        api.get(status_url("req-1")).mock(side_effect=route)
+        started = time.monotonic()
+        async with make_async_rt(async_client, server) as rt:
+            result = await rt.wait("req-1", poll_interval=30)
+        assert result.status == JobStatus.ERROR
+        assert route.calls == 2
+        assert time.monotonic() - started < 3
 
     async def test_done_event_before_rest_agrees(
         self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
