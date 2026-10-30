@@ -166,11 +166,11 @@ def make_async_rt(client: AsyncDeapiClient, server: FakePusherServer, **kwargs: 
 
 class TestConnect:
     def test_handshake_and_subscription(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         from deapi_sdk._version import __version__
 
-        rt = make_rt(client_v2, server)
+        rt = make_rt(client, server)
         assert rt.connected is False
         with rt:
             assert rt.connected is True
@@ -183,16 +183,16 @@ class TestConnect:
             assert signature == sign(APP_KEY, auth.bodies[0]["socket_id"], CHANNEL)
         assert rt.connected is False
 
-    def test_auth_request(self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
-        with make_rt(client_v2, server):
+    def test_auth_request(self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
+        with make_rt(client, server):
             pass
         body = auth.bodies[0]
         assert set(body) == {"socket_id", "channel_name"}
         assert body["channel_name"] == CHANNEL
         assert auth.headers[0]["authorization"] == f"Bearer {TEST_API_KEY}"
 
-    def test_repr_hides_api_key(self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
-        rt = make_rt(client_v2, server)
+    def test_repr_hides_api_key(self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
+        rt = make_rt(client, server)
         text = repr(rt)
         assert CLIENT_ID in text
         assert TEST_API_KEY not in text
@@ -200,138 +200,138 @@ class TestConnect:
             assert "connected=True" in repr(rt)
             assert TEST_API_KEY not in repr(rt)
 
-    def test_close_is_idempotent(self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
-        rt = make_rt(client_v2, server)
+    def test_close_is_idempotent(self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
+        rt = make_rt(client, server)
         rt.connect()
         rt.close()
         rt.close()
         assert rt.connected is False
 
-    def test_close_without_connect(self, client_v2: DeapiClient, server: FakePusherServer) -> None:
-        rt = make_rt(client_v2, server)
+    def test_close_without_connect(self, client: DeapiClient, server: FakePusherServer) -> None:
+        rt = make_rt(client, server)
         rt.close()
 
-    def test_connect_twice_fails(self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
-        with make_rt(client_v2, server) as rt, pytest.raises(RealtimeError, match="already started"):
+    def test_connect_twice_fails(self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
+        with make_rt(client, server) as rt, pytest.raises(RealtimeError, match="already started"):
             rt.connect()
 
     def test_client_close_closes_sessions(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
-        rt = make_rt(client_v2, server)
+        rt = make_rt(client, server)
         rt.connect()
         assert rt.connected
-        client_v2.close()
+        client.close()
         assert rt.connected is False
 
-    def test_missing_websockets_extra(self, client_v2: DeapiClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_missing_websockets_extra(self, client: DeapiClient, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setitem(sys.modules, "websockets.asyncio.client", None)
-        rt = client_v2.realtime(client_id=CLIENT_ID, ws_url="ws://127.0.0.1:1", app_key=APP_KEY)
+        rt = client.realtime(client_id=CLIENT_ID, ws_url="ws://127.0.0.1:1", app_key=APP_KEY)
         with pytest.raises(ImportError, match=r"deapi-sdk\[ws\]"):
             rt.connect()
 
 
 class TestSettings:
     def test_explicit_client_id_wins_over_env(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, monkeypatch: pytest.MonkeyPatch
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("DEAPI_CLIENT_ID", "from-env")
-        with make_rt(client_v2, server, client_id="explicit-id") as rt:
+        with make_rt(client, server, client_id="explicit-id") as rt:
             assert rt.client_id == "explicit-id"
         assert server.subscriptions[0][0] == "private-client.explicit-id"
 
     def test_env_client_id_used(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, monkeypatch: pytest.MonkeyPatch
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("DEAPI_CLIENT_ID", "from-env")
-        with client_v2.realtime(ws_url=server.url, app_key=APP_KEY, connect_timeout=2) as rt:
+        with client.realtime(ws_url=server.url, app_key=APP_KEY, connect_timeout=2) as rt:
             assert rt.client_id == "from-env"
         assert server.subscriptions[0][0] == "private-client.from-env"
 
-    def test_missing_client_id(self, client_v2: DeapiClient) -> None:
+    def test_missing_client_id(self, client: DeapiClient) -> None:
         with pytest.raises(ValueError, match="DEAPI_CLIENT_ID"):
-            client_v2.realtime()
+            client.realtime()
 
-    def test_blank_env_client_id_is_missing(self, client_v2: DeapiClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_blank_env_client_id_is_missing(self, client: DeapiClient, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("DEAPI_CLIENT_ID", "   ")
         with pytest.raises(ValueError, match="DEAPI_CLIENT_ID"):
-            client_v2.realtime()
+            client.realtime()
 
     def test_int_client_id(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
-        with make_rt(client_v2, server, client_id=12345) as rt:
+        with make_rt(client, server, client_id=12345) as rt:
             assert rt.client_id == "12345"
         assert server.subscriptions[0][0] == "private-client.12345"
 
     def test_env_ws_url_and_app_key(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, monkeypatch: pytest.MonkeyPatch
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("DEAPI_WS_URL", server.url)
         monkeypatch.setenv("DEAPI_WS_APP_KEY", APP_KEY)
-        with client_v2.realtime(client_id=CLIENT_ID, connect_timeout=2):
+        with client.realtime(client_id=CLIENT_ID, connect_timeout=2):
             pass
         assert server.last_path == f"/app/{APP_KEY}"
 
-    def test_invalid_ws_url(self, client_v2: DeapiClient) -> None:
+    def test_invalid_ws_url(self, client: DeapiClient) -> None:
         with pytest.raises(ValueError, match="ws_url"):
-            client_v2.realtime(client_id=CLIENT_ID, ws_url="https://example.test")
+            client.realtime(client_id=CLIENT_ID, ws_url="https://example.test")
 
-    def test_invalid_connect_timeout(self, client_v2: DeapiClient) -> None:
+    def test_invalid_connect_timeout(self, client: DeapiClient) -> None:
         with pytest.raises(ValueError, match="connect_timeout"):
-            client_v2.realtime(client_id=CLIENT_ID, connect_timeout=0)
+            client.realtime(client_id=CLIENT_ID, connect_timeout=0)
 
 
 class TestConnectFailures:
-    def test_auth_forbidden(self, client_v2: DeapiClient, server: FakePusherServer, api: respx.MockRouter) -> None:
+    def test_auth_forbidden(self, client: DeapiClient, server: FakePusherServer, api: respx.MockRouter) -> None:
         api.post(AUTH_URL).mock(return_value=httpx.Response(403, json={"message": "Forbidden"}))
-        rt = make_rt(client_v2, server)
+        rt = make_rt(client, server)
         with pytest.raises(PermissionDeniedError):
             rt.connect()
         assert rt.connected is False
 
-    def test_auth_unauthorized(self, client_v2: DeapiClient, server: FakePusherServer, api: respx.MockRouter) -> None:
+    def test_auth_unauthorized(self, client: DeapiClient, server: FakePusherServer, api: respx.MockRouter) -> None:
         api.post(AUTH_URL).mock(return_value=httpx.Response(401, json={"message": "Unauthenticated."}))
-        with pytest.raises(AuthenticationError), make_rt(client_v2, server):
+        with pytest.raises(AuthenticationError), make_rt(client, server):
             pass
 
     def test_auth_response_without_signature(
-        self, client_v2: DeapiClient, server: FakePusherServer, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, api: respx.MockRouter
     ) -> None:
         api.post(AUTH_URL).mock(return_value=httpx.Response(200, json={"nope": 1}))
         with pytest.raises(RealtimeError, match="auth signature"):
-            make_rt(client_v2, server).connect()
+            make_rt(client, server).connect()
 
-    def test_subscription_refused(self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
+    def test_subscription_refused(self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
         server.auth_validator = lambda socket_id, channel, signature: False
         with pytest.raises(RealtimeError, match="client_id") as info:
-            make_rt(client_v2, server).connect()
+            make_rt(client, server).connect()
         assert info.value.status_code == 401
         assert CHANNEL in str(info.value)
 
     def test_server_rejects_connection(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         server.reject_connections_with = 4001
         started = time.monotonic()
         with pytest.raises(RealtimeError) as info:
-            make_rt(client_v2, server, connect_timeout=10).connect()
+            make_rt(client, server, connect_timeout=10).connect()
         assert info.value.close_code == 4001
         assert time.monotonic() - started < 5
         assert server.connections_total == 1  # fatal: no retries
 
-    def test_wrong_app_key(self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
+    def test_wrong_app_key(self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
         started = time.monotonic()
         with pytest.raises(RealtimeError) as info:
-            client_v2.realtime(
+            client.realtime(
                 client_id=CLIENT_ID, ws_url=server.url, app_key="wrong-key", connect_timeout=10
             ).connect()
         assert info.value.close_code == 4001
         assert time.monotonic() - started < 5
 
-    def test_connect_timeout(self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
+    def test_connect_timeout(self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint) -> None:
         server.suppress_subscription_reply = True
-        rt = make_rt(client_v2, server, connect_timeout=0.5)
+        rt = make_rt(client, server, connect_timeout=0.5)
         rt._engine._subscribe_timeout = 0.1
         started = time.monotonic()
         with pytest.raises(RealtimeError, match="within"):
@@ -342,12 +342,12 @@ class TestConnectFailures:
 
 class TestWait:
     def test_already_done(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         route = Statuses(done)
         api.get(status_url("req-1")).mock(side_effect=route)
         seen: list[JobStatusEvent] = []
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             result = rt.wait("req-1", on_progress=seen.append)
         assert result.status == JobStatus.DONE
         assert result.result_url == REST_URL
@@ -355,7 +355,7 @@ class TestWait:
         assert seen == []
 
     def test_progress_then_done(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         def on_call(n: int) -> None:
             if n == 0:
@@ -366,7 +366,7 @@ class TestWait:
         route = Statuses(processing, done, on_call=on_call)
         api.get(status_url("req-1")).mock(side_effect=route)
         seen: list[JobStatusEvent] = []
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             result = rt.wait("req-1", on_progress=seen.append, poll_interval=30)
         assert [(e.status, e.progress) for e in seen] == [
             (JobStatus.PROCESSING, 10.0),
@@ -378,31 +378,31 @@ class TestWait:
         assert route.calls == 2
 
     def test_error_job_found_by_polling(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         route = Statuses(processing, processing, failed)
         api.get(status_url("req-1")).mock(side_effect=route)
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             result = rt.wait("req-1", poll_interval=0.05, max_wait=5)
         assert result.status == JobStatus.ERROR
         assert route.calls == 3
 
     def test_done_event_before_rest_agrees(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         route = Statuses(
             processing, processing, done, on_call=lambda n: push(server, "req-1", "done") if n == 0 else None
         )
         api.get(status_url("req-1")).mock(side_effect=route)
         started = time.monotonic()
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             result = rt.wait("req-1", poll_interval=30)
         assert result.status == JobStatus.DONE
         assert route.calls == 3
         assert time.monotonic() - started < 3
 
     def test_other_request_ids_ignored(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         def on_call(n: int) -> None:
             if n == 0:
@@ -414,7 +414,7 @@ class TestWait:
         route = Statuses(processing, done, on_call=on_call)
         api.get(status_url("req-1")).mock(side_effect=route)
         seen: list[JobStatusEvent] = []
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             result = rt.wait("req-1", on_progress=seen.append, poll_interval=30)
         assert {e.request_id for e in seen} == {"req-1"}
         assert len(seen) == 2
@@ -422,23 +422,23 @@ class TestWait:
         assert route.calls == 2  # the other job's "done" did not trigger a status check
 
     def test_accepts_job_handle(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         api.get(status_url("req-1")).mock(side_effect=Statuses(done))
-        job = client_v2.jobs.get("req-1")
-        with make_rt(client_v2, server) as rt:
+        job = client.jobs.get("req-1")
+        with make_rt(client, server) as rt:
             assert rt.wait(job).status == JobStatus.DONE
 
     def test_max_wait_exceeded(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         api.get(status_url("req-1")).mock(side_effect=Statuses(processing))
-        with make_rt(client_v2, server) as rt, pytest.raises(JobTimeoutError) as info:
+        with make_rt(client, server) as rt, pytest.raises(JobTimeoutError) as info:
             rt.wait("req-1", max_wait=0.3, poll_interval=0.05)
         assert info.value.request_id == "req-1"
 
-    def test_before_connect(self, client_v2: DeapiClient, server: FakePusherServer) -> None:
-        rt = make_rt(client_v2, server)
+    def test_before_connect(self, client: DeapiClient, server: FakePusherServer) -> None:
+        rt = make_rt(client, server)
         with pytest.raises(RealtimeError, match="not connected"):
             rt.wait("req-1")
         with pytest.raises(RealtimeError, match="not connected"):
@@ -451,20 +451,20 @@ class TestWait:
         ({"poll_interval": -1}, "poll_interval"),
     ])
     def test_invalid_arguments(
-        self, client_v2: DeapiClient, server: FakePusherServer, kwargs: dict[str, float], match: str
+        self, client: DeapiClient, server: FakePusherServer, kwargs: dict[str, float], match: str
     ) -> None:
-        rt = make_rt(client_v2, server)
+        rt = make_rt(client, server)
         with pytest.raises(ValueError, match=match):
             rt.wait("req-1", **kwargs)
 
     def test_empty_request_id(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
-        with make_rt(client_v2, server) as rt, pytest.raises(ValueError, match="request_id"):
+        with make_rt(client, server) as rt, pytest.raises(ValueError, match="request_id"):
             rt.wait("")
 
     def test_on_progress_exception_propagates(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         route = Statuses(processing, on_call=lambda n: push(server, "req-1", "processing", "5") if n == 0 else None)
         api.get(status_url("req-1")).mock(side_effect=route)
@@ -472,14 +472,14 @@ class TestWait:
         def boom(event: JobStatusEvent) -> None:
             raise RuntimeError("boom")
 
-        with make_rt(client_v2, server) as rt, pytest.raises(RuntimeError, match="boom"):
+        with make_rt(client, server) as rt, pytest.raises(RuntimeError, match="boom"):
             rt.wait("req-1", on_progress=boom, poll_interval=30)
 
     def test_wait_after_close_raises(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         api.get(status_url("req-1")).mock(side_effect=Statuses(processing))
-        rt = make_rt(client_v2, server)
+        rt = make_rt(client, server)
         rt.connect()
         rt.close()
         with pytest.raises(RealtimeError, match="closed"):
@@ -489,9 +489,9 @@ class TestWait:
 class TestReconnect:
     @pytest.mark.parametrize("how", ["close_4200", "close_4100", "drop", "close_1000"])
     def test_reconnects_and_reauthorizes(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, how: str
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, how: str
     ) -> None:
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             if how == "drop":
                 server.drop_all()
             else:
@@ -506,7 +506,7 @@ class TestReconnect:
                 assert signature == sign(APP_KEY, body["socket_id"], CHANNEL)
 
     def test_wait_rechecks_status_after_reconnect(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         def on_call(n: int) -> None:
             if n == 0:
@@ -518,17 +518,17 @@ class TestReconnect:
         route = Statuses(processing, maybe_done, on_call=on_call)
         api.get(status_url("req-1")).mock(side_effect=route)
         started = time.monotonic()
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             result = rt.wait("req-1", poll_interval=30, max_wait=1)
         assert result.status == JobStatus.DONE
         assert time.monotonic() - started < 0.8
         assert server.connections_total >= 2
 
     def test_events_keep_flowing_after_reconnect(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         seen: list[JobStatusEvent] = []
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             thread = in_thread(lambda: seen.extend(e for _, e in zip(range(1), rt.events(), strict=False)))
             server.wait_for(lambda: bool(rt._engine._sinks))
             server.close_all(4200)
@@ -539,11 +539,11 @@ class TestReconnect:
 
     @pytest.mark.parametrize("code", [4009, 4001])
     def test_fatal_close_fails_pending_wait(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter, code: int
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter, code: int
     ) -> None:
         route = Statuses(processing, on_call=lambda n: in_thread(server.close_all, code) if n == 0 else None)
         api.get(status_url("req-1")).mock(side_effect=route)
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             with pytest.raises(RealtimeError) as info:
                 rt.wait("req-1", poll_interval=30, max_wait=10)
             assert info.value.close_code == code
@@ -553,7 +553,7 @@ class TestReconnect:
         assert server.connections_total == 1  # no reconnect attempts
 
     def test_fatal_close_fails_events(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         errors: list[BaseException] = []
 
@@ -564,7 +564,7 @@ class TestReconnect:
             except BaseException as exc:
                 errors.append(exc)
 
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             thread = in_thread(consume, rt)
             server.wait_for(lambda: bool(rt._engine._sinks))
             server.close_all(4009)
@@ -576,18 +576,18 @@ class TestReconnect:
 
 class TestKeepalive:
     def test_client_pings_after_server_activity_timeout(
-        self, client_v2: DeapiClient, auth: AuthEndpoint
+        self, client: DeapiClient, auth: AuthEndpoint
     ) -> None:
-        with FakePusherServer(app_key=APP_KEY, activity_timeout=1) as server, make_rt(client_v2, server) as rt:
+        with FakePusherServer(app_key=APP_KEY, activity_timeout=1) as server, make_rt(client, server) as rt:
             assert server.pings_received == 0
             server.wait_for(lambda: server.pings_received >= 1, timeout=4)
             assert rt.connected
             assert server.connections_total == 1
 
     def test_ping_loop_keeps_connection_alive(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
-        rt = make_rt(client_v2, server)
+        rt = make_rt(client, server)
         rt._engine._max_activity_timeout = 0.05
         with rt:
             server.wait_for(lambda: server.pings_received >= 3)
@@ -595,10 +595,10 @@ class TestKeepalive:
             assert server.connections_total == 1
 
     def test_no_pong_triggers_reconnect(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         server.reply_to_pings = False
-        rt = make_rt(client_v2, server)
+        rt = make_rt(client, server)
         rt._engine._max_activity_timeout = 0.1
         rt._engine._pong_timeout = 0.1
         with rt:
@@ -606,9 +606,9 @@ class TestKeepalive:
             assert len(auth.bodies) >= 2
 
     def test_unanswered_server_ping_is_not_fatal(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             server.send_raw('{"event":"pusher:ping","data":{}}')
             server.send_raw("not json at all")
             server.send_raw('{"event":"pusher:error","data":{"code":4200,"message":"minor"}}')
@@ -619,7 +619,7 @@ class TestKeepalive:
 
 class TestEvents:
     def test_events_in_order_skip_malformed_and_end_on_close(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         received: list[JobStatusEvent] = []
         finished = threading.Event()
@@ -629,7 +629,7 @@ class TestEvents:
                 received.append(event)
             finished.set()
 
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             thread = in_thread(consume, rt)
             server.wait_for(lambda: bool(rt._engine._sinks))
             push(server, "req-1", "processing")
@@ -649,7 +649,7 @@ class TestEvents:
         assert received[1].progress == 12.5
 
     def test_events_on_other_channels_ignored(
-        self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         received: list[JobStatusEvent] = []
         thread_done = threading.Event()
@@ -659,7 +659,7 @@ class TestEvents:
                 received.append(event)
             thread_done.set()
 
-        with make_rt(client_v2, server) as rt:
+        with make_rt(client, server) as rt:
             thread = in_thread(consume, rt)
             server.wait_for(lambda: bool(rt._engine._sinks))
             other = {"event": protocol.STATUS_EVENT, "channel": "private-client.other"}
@@ -751,11 +751,11 @@ async def _unused_auth(socket_id: str, channel: str) -> str:
 
 class TestAsyncConnect:
     async def test_handshake_and_subscription(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         from deapi_sdk._version import __version__
 
-        rt = make_async_rt(async_client_v2, server)
+        rt = make_async_rt(async_client, server)
         assert rt.connected is False
         async with rt:
             assert rt.connected is True
@@ -770,77 +770,77 @@ class TestAsyncConnect:
         assert rt.connected is False
 
     async def test_client_close_closes_sessions(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
-        rt = make_async_rt(async_client_v2, server)
+        rt = make_async_rt(async_client, server)
         await rt.connect()
         assert rt.connected
-        await async_client_v2.close()
+        await async_client.close()
         assert rt.connected is False
 
-    async def test_missing_client_id(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_missing_client_id(self, async_client: AsyncDeapiClient) -> None:
         with pytest.raises(ValueError, match="DEAPI_CLIENT_ID"):
-            async_client_v2.realtime()
+            async_client.realtime()
 
     async def test_env_client_id_and_int(
         self,
-        async_client_v2: AsyncDeapiClient,
+        async_client: AsyncDeapiClient,
         server: FakePusherServer,
         auth: AuthEndpoint,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setenv("DEAPI_CLIENT_ID", "from-env")
-        async with async_client_v2.realtime(ws_url=server.url, app_key=APP_KEY, connect_timeout=2) as rt:
+        async with async_client.realtime(ws_url=server.url, app_key=APP_KEY, connect_timeout=2) as rt:
             assert rt.client_id == "from-env"
-        async with make_async_rt(async_client_v2, server, client_id=77) as rt:
+        async with make_async_rt(async_client, server, client_id=77) as rt:
             assert rt.client_id == "77"
         assert [c for c, _ in server.subscriptions] == ["private-client.from-env", "private-client.77"]
 
     async def test_missing_websockets_extra(
-        self, async_client_v2: AsyncDeapiClient, monkeypatch: pytest.MonkeyPatch
+        self, async_client: AsyncDeapiClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setitem(sys.modules, "websockets.asyncio.client", None)
-        rt = async_client_v2.realtime(client_id=CLIENT_ID, ws_url="ws://127.0.0.1:1", app_key=APP_KEY)
+        rt = async_client.realtime(client_id=CLIENT_ID, ws_url="ws://127.0.0.1:1", app_key=APP_KEY)
         with pytest.raises(ImportError, match=r"deapi-sdk\[ws\]"):
             await rt.connect()
 
     async def test_auth_forbidden(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, api: respx.MockRouter
     ) -> None:
         api.post(AUTH_URL).mock(return_value=httpx.Response(403, json={"message": "Forbidden"}))
         with pytest.raises(PermissionDeniedError):
-            await make_async_rt(async_client_v2, server).connect()
+            await make_async_rt(async_client, server).connect()
 
     async def test_auth_unauthorized(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, api: respx.MockRouter
     ) -> None:
         api.post(AUTH_URL).mock(return_value=httpx.Response(401, json={"message": "Unauthenticated."}))
         with pytest.raises(AuthenticationError):
-            async with make_async_rt(async_client_v2, server):
+            async with make_async_rt(async_client, server):
                 pass
 
     async def test_subscription_refused(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         server.auth_validator = lambda socket_id, channel, signature: False
         with pytest.raises(RealtimeError, match="client_id"):
-            await make_async_rt(async_client_v2, server).connect()
+            await make_async_rt(async_client, server).connect()
 
     async def test_server_rejects_connection(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         server.reject_connections_with = 4001
         started = time.monotonic()
         with pytest.raises(RealtimeError) as info:
-            await make_async_rt(async_client_v2, server, connect_timeout=10).connect()
+            await make_async_rt(async_client, server, connect_timeout=10).connect()
         assert info.value.close_code == 4001
         assert time.monotonic() - started < 5
 
     async def test_connect_timeout(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         server.suppress_subscription_reply = True
-        rt = make_async_rt(async_client_v2, server, connect_timeout=0.5)
+        rt = make_async_rt(async_client, server, connect_timeout=0.5)
         rt._engine._subscribe_timeout = 0.1
         with pytest.raises(RealtimeError, match="within"):
             await rt.connect()
@@ -848,11 +848,11 @@ class TestAsyncConnect:
 
 class TestAsyncWait:
     async def test_already_done(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         route = Statuses(done)
         api.get(status_url("req-1")).mock(side_effect=route)
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             result = await rt.wait("req-1")
         assert result.status == JobStatus.DONE
         assert route.calls == 1
@@ -860,7 +860,7 @@ class TestAsyncWait:
     @pytest.mark.parametrize("async_callback", [False, True])
     async def test_progress_then_done(
         self,
-        async_client_v2: AsyncDeapiClient,
+        async_client: AsyncDeapiClient,
         server: FakePusherServer,
         auth: AuthEndpoint,
         api: respx.MockRouter,
@@ -880,34 +880,34 @@ class TestAsyncWait:
             await asyncio.sleep(0)
             seen.append(event)
 
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             result = await rt.wait("req-1", on_progress=acb if async_callback else seen.append, poll_interval=30)
         assert [e.progress for e in seen] == [10.0, 55.5, 100.0]
         assert result.result_url == REST_URL
         assert route.calls == 2
 
     async def test_error_job_found_by_polling(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         api.get(status_url("req-1")).mock(side_effect=Statuses(processing, processing, failed))
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             result = await rt.wait("req-1", poll_interval=0.05, max_wait=5)
         assert result.status == JobStatus.ERROR
 
     async def test_done_event_before_rest_agrees(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         route = Statuses(
             processing, processing, done, on_call=lambda n: push(server, "req-1", "done") if n == 0 else None
         )
         api.get(status_url("req-1")).mock(side_effect=route)
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             result = await rt.wait("req-1", poll_interval=30)
         assert result.status == JobStatus.DONE
         assert route.calls == 3
 
     async def test_other_request_ids_ignored(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         def on_call(n: int) -> None:
             if n == 0:
@@ -918,31 +918,31 @@ class TestAsyncWait:
         route = Statuses(processing, done, on_call=on_call)
         api.get(status_url("req-1")).mock(side_effect=route)
         seen: list[JobStatusEvent] = []
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             await rt.wait("req-1", on_progress=seen.append, poll_interval=30)
         assert [e.request_id for e in seen] == ["req-1"]
         assert route.calls == 2
 
     async def test_accepts_async_job_handle(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         api.get(status_url("req-1")).mock(side_effect=Statuses(done))
-        job = async_client_v2.jobs.get("req-1")
-        async with make_async_rt(async_client_v2, server) as rt:
+        job = async_client.jobs.get("req-1")
+        async with make_async_rt(async_client, server) as rt:
             assert (await rt.wait(job)).status == JobStatus.DONE
 
     async def test_max_wait_exceeded(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         api.get(status_url("req-1")).mock(side_effect=Statuses(processing))
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             with pytest.raises(JobTimeoutError):
                 await rt.wait("req-1", max_wait=0.3, poll_interval=0.05)
 
     async def test_before_connect_and_invalid_args(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer
+        self, async_client: AsyncDeapiClient, server: FakePusherServer
     ) -> None:
-        rt = make_async_rt(async_client_v2, server)
+        rt = make_async_rt(async_client, server)
         with pytest.raises(RealtimeError, match="not connected"):
             await rt.wait("req-1")
         with pytest.raises(RealtimeError, match="not connected"):
@@ -953,7 +953,7 @@ class TestAsyncWait:
             await rt.wait("req-1", poll_interval=-1)
 
     async def test_on_progress_exception_propagates(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         route = Statuses(processing, on_call=lambda n: push(server, "req-1", "processing", "5") if n == 0 else None)
         api.get(status_url("req-1")).mock(side_effect=route)
@@ -961,15 +961,15 @@ class TestAsyncWait:
         async def boom(event: JobStatusEvent) -> None:
             raise RuntimeError("boom")
 
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             with pytest.raises(RuntimeError, match="boom"):
                 await rt.wait("req-1", on_progress=boom, poll_interval=30)
 
     async def test_cancelled_wait_releases_sink(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         api.get(status_url("req-1")).mock(side_effect=Statuses(processing))
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             task = asyncio.create_task(rt.wait("req-1", poll_interval=30, max_wait=30))
             await until(lambda: bool(rt._engine._sinks))
             task.cancel()
@@ -981,9 +981,9 @@ class TestAsyncWait:
 class TestAsyncReconnect:
     @pytest.mark.parametrize("how", ["close_4200", "close_4100", "drop"])
     async def test_reconnects_and_reauthorizes(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, how: str
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, how: str
     ) -> None:
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             if how == "drop":
                 await asyncio.to_thread(server.drop_all)
             else:
@@ -995,7 +995,7 @@ class TestAsyncReconnect:
             assert server.subscriptions[1][1] == sign(APP_KEY, auth.bodies[1]["socket_id"], CHANNEL)
 
     async def test_wait_rechecks_status_after_reconnect(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
         def maybe_done() -> dict[str, Any]:
             return done() if len(server.subscriptions) >= 2 else processing()
@@ -1005,7 +1005,7 @@ class TestAsyncReconnect:
         )
         api.get(status_url("req-1")).mock(side_effect=route)
         started = time.monotonic()
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             result = await rt.wait("req-1", poll_interval=30, max_wait=1)
         assert result.status == JobStatus.DONE
         assert time.monotonic() - started < 0.8
@@ -1013,7 +1013,7 @@ class TestAsyncReconnect:
     @pytest.mark.parametrize("code", [4009, 4001])
     async def test_fatal_close_fails_pending_wait(
         self,
-        async_client_v2: AsyncDeapiClient,
+        async_client: AsyncDeapiClient,
         server: FakePusherServer,
         auth: AuthEndpoint,
         api: respx.MockRouter,
@@ -1021,7 +1021,7 @@ class TestAsyncReconnect:
     ) -> None:
         route = Statuses(processing, on_call=lambda n: in_thread(server.close_all, code) if n == 0 else None)
         api.get(status_url("req-1")).mock(side_effect=route)
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             with pytest.raises(RealtimeError) as info:
                 await rt.wait("req-1", poll_interval=30, max_wait=10)
             assert info.value.close_code == code
@@ -1031,9 +1031,9 @@ class TestAsyncReconnect:
 
 class TestAsyncKeepalive:
     async def test_client_pings_after_inactivity(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
-        rt = make_async_rt(async_client_v2, server)
+        rt = make_async_rt(async_client, server)
         rt._engine._max_activity_timeout = 0.1
         async with rt:
             await until(lambda: server.pings_received >= 2)
@@ -1041,10 +1041,10 @@ class TestAsyncKeepalive:
             assert server.connections_total == 1
 
     async def test_no_pong_triggers_reconnect(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         server.reply_to_pings = False
-        rt = make_async_rt(async_client_v2, server)
+        rt = make_async_rt(async_client, server)
         rt._engine._max_activity_timeout = 0.1
         rt._engine._pong_timeout = 0.1
         async with rt:
@@ -1053,7 +1053,7 @@ class TestAsyncKeepalive:
 
 class TestAsyncEvents:
     async def test_events_in_order_skip_malformed_and_end_on_close(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         received: list[JobStatusEvent] = []
 
@@ -1061,7 +1061,7 @@ class TestAsyncEvents:
             async for event in rt.events():
                 received.append(event)
 
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             task = asyncio.create_task(consume(rt))
             await until(lambda: bool(rt._engine._sinks))
             await asyncio.to_thread(push, server, "req-1", "processing")
@@ -1079,13 +1079,13 @@ class TestAsyncEvents:
         assert received[1].progress == 12.5
 
     async def test_events_raise_after_fatal_close(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
         async def consume(rt: Any) -> None:
             async for _ in rt.events():
                 pass
 
-        async with make_async_rt(async_client_v2, server) as rt:
+        async with make_async_rt(async_client, server) as rt:
             task = asyncio.create_task(consume(rt))
             await until(lambda: bool(rt._engine._sinks))
             await asyncio.to_thread(server.close_all, 4009)
@@ -1094,9 +1094,9 @@ class TestAsyncEvents:
             assert info.value.close_code == 4009
 
     async def test_events_after_close_end_immediately(
-        self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint
     ) -> None:
-        rt = make_async_rt(async_client_v2, server)
+        rt = make_async_rt(async_client, server)
         await rt.connect()
         await rt.close()
         assert [e async for e in rt.events()] == []

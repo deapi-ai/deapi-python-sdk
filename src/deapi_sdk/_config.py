@@ -4,13 +4,12 @@ import os
 from dataclasses import dataclass, field
 
 from deapi_sdk._cards import parse_flag
-from deapi_sdk._constants import PREFIXES
+from deapi_sdk._constants import API_PREFIX, API_VERSION
 from deapi_sdk._version import __version__
 
 _DEFAULT_BASE_URL = "https://api.deapi.ai"
 _DEFAULT_TIMEOUT = 30.0
 _DEFAULT_MAX_RETRIES = 3
-_DEFAULT_API_VERSION = "v2"
 # Upper bound on how long we actually sleep for a 429 `Retry-After`, regardless of
 # the value (or absolute HTTP-date) the server sends. Keeps a long/day-bucket
 # Retry-After from parking a request for minutes/hours; the true server value is
@@ -24,7 +23,7 @@ class ClientConfig:
     base_url: str = _DEFAULT_BASE_URL
     timeout: float = _DEFAULT_TIMEOUT
     max_retries: int = _DEFAULT_MAX_RETRIES
-    api_version: str = _DEFAULT_API_VERSION
+    api_version: str = API_VERSION
     fill_model_defaults: bool = True
     max_retry_after: float = _DEFAULT_MAX_RETRY_AFTER
     _user_agent: str = field(init=False, default=f"deapi-sdk/{__version__}")
@@ -51,7 +50,7 @@ class ClientConfig:
             base_url=base_url or os.environ.get("DEAPI_BASE_URL", _DEFAULT_BASE_URL),
             timeout=timeout if timeout is not None else _DEFAULT_TIMEOUT,
             max_retries=max_retries if max_retries is not None else _DEFAULT_MAX_RETRIES,
-            api_version=api_version or os.environ.get("DEAPI_API_VERSION", _DEFAULT_API_VERSION),
+            api_version=_check_api_version(api_version or os.environ.get("DEAPI_API_VERSION")),
             fill_model_defaults=(
                 fill_model_defaults
                 if fill_model_defaults is not None
@@ -64,7 +63,15 @@ class ClientConfig:
 
     @property
     def api_prefix(self) -> str:
-        # v1: /api/v1/client, v2: /api/v2 (no /client/ segment).
-        # Falls back to /api/{version}/client for unknown versions so a future
-        # v3 with the same shape works without a code change here.
-        return PREFIXES.get(self.api_version, f"/api/{self.api_version}/client")
+        return API_PREFIX
+
+
+def _check_api_version(value: str | None) -> str:
+    """Only deAPI API v2 is supported; anything else is a configuration error."""
+    version = (value or API_VERSION).strip().lower()
+    if version != API_VERSION:
+        raise ValueError(
+            f"Unsupported API version {value!r}: this SDK supports deAPI API {API_VERSION} only "
+            "(API v1 support was removed in 0.4.0). Omit api_version / DEAPI_API_VERSION or set it to 'v2'."
+        )
+    return version

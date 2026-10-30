@@ -18,7 +18,7 @@ PRICE_RESPONSE = {"data": {"price": 0.01}}
 class TestEmbeddingsCreate:
     @respx.mock
     def test_create_with_string_input(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2embedding").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/embeddings").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.embeddings.create(
@@ -29,7 +29,7 @@ class TestEmbeddingsCreate:
 
     @respx.mock
     def test_create_with_list_input(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2embedding").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/embeddings").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.embeddings.create(
@@ -40,7 +40,7 @@ class TestEmbeddingsCreate:
 
     @respx.mock
     def test_create_sends_correct_payload(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2embedding").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/embeddings").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.embeddings.create(
@@ -57,7 +57,7 @@ class TestEmbeddingsCreate:
 
     @respx.mock
     def test_create_minimal_payload(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2embedding").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/embeddings").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.embeddings.create(input="test", model="bge-m3")
@@ -67,7 +67,7 @@ class TestEmbeddingsCreate:
 
     @respx.mock
     def test_create_price_with_string(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2embedding/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/embeddings/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.embeddings.create_price(
@@ -78,7 +78,7 @@ class TestEmbeddingsCreate:
 
     @respx.mock
     def test_create_price_with_list(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2embedding/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/embeddings/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.embeddings.create_price(
@@ -92,7 +92,7 @@ class TestAsyncEmbeddings:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_create(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2embedding").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/embeddings").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.embeddings.create(
@@ -104,7 +104,7 @@ class TestAsyncEmbeddings:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_create_price(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2embedding/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/embeddings/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = await async_client.embeddings.create_price(

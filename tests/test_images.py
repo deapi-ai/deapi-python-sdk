@@ -20,7 +20,7 @@ PRICE_RESPONSE = {"data": {"price": 0.25}}
 class TestImageGeneration:
     @respx.mock
     def test_generate_returns_job(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/generations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.images.generate(
@@ -34,7 +34,7 @@ class TestImageGeneration:
 
     @respx.mock
     def test_generate_sends_correct_payload(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/generations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.images.generate(
@@ -64,7 +64,7 @@ class TestImageGeneration:
 
     @respx.mock
     def test_generate_minimal_payload(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/generations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.images.generate(prompt="test", model="sdxl", width=512, height=512, seed=1)
@@ -77,7 +77,7 @@ class TestImageGeneration:
 
     @respx.mock
     def test_generate_price(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/generations/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.images.generate_price(
@@ -89,7 +89,7 @@ class TestImageGeneration:
 class TestImageTransform:
     @respx.mock
     def test_transform_with_file_path(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2img").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/edits").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
@@ -108,7 +108,7 @@ class TestImageTransform:
 
     @respx.mock
     def test_transform_with_bytes(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2img").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/edits").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.images.transform(
@@ -122,7 +122,7 @@ class TestImageTransform:
 
     @respx.mock
     def test_transform_with_multiple_images(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2img").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/edits").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f1:
@@ -145,7 +145,7 @@ class TestImageTransform:
 
     @respx.mock
     def test_transform_sends_multipart(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img2img").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/edits").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.images.transform(
@@ -161,7 +161,7 @@ class TestImageTransform:
 
     @respx.mock
     def test_transform_price(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2img/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/edits/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.images.transform_price(
@@ -173,7 +173,7 @@ class TestImageTransform:
 class TestImageUpscale:
     @respx.mock
     def test_upscale_returns_job(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img-upscale").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/upscales").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.images.upscale(image=b"fake-image", model="realesrgan-x4")
@@ -181,7 +181,7 @@ class TestImageUpscale:
 
     @respx.mock
     def test_upscale_sends_multipart(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img-upscale").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/upscales").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.images.upscale(image=b"fake-image", model="realesrgan-x4")
@@ -190,7 +190,7 @@ class TestImageUpscale:
 
     @respx.mock
     def test_upscale_with_file_path(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img-upscale").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/upscales").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
@@ -202,7 +202,7 @@ class TestImageUpscale:
 
     @respx.mock
     def test_upscale_with_webhook(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img-upscale").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/upscales").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.images.upscale(
@@ -213,7 +213,7 @@ class TestImageUpscale:
 
     @respx.mock
     def test_upscale_price_with_dimensions(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img-upscale/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/upscales/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.images.upscale_price(
@@ -223,7 +223,7 @@ class TestImageUpscale:
 
     @respx.mock
     def test_upscale_price_with_file(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img-upscale/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/upscales/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.images.upscale_price(
@@ -235,7 +235,7 @@ class TestImageUpscale:
 class TestImageRemoveBackground:
     @respx.mock
     def test_rmbg_returns_job(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img-rmbg").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/background-removals").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.images.remove_background(image=b"fake-image", model="rmbg-1.4")
@@ -243,7 +243,7 @@ class TestImageRemoveBackground:
 
     @respx.mock
     def test_rmbg_sends_multipart(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img-rmbg").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/background-removals").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.images.remove_background(image=b"fake-image", model="rmbg-1.4")
@@ -252,7 +252,7 @@ class TestImageRemoveBackground:
 
     @respx.mock
     def test_rmbg_price_with_dimensions(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img-rmbg/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/background-removals/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.images.remove_background_price(
@@ -265,7 +265,7 @@ class TestAsyncImages:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_generate(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/generations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.images.generate(
@@ -276,7 +276,7 @@ class TestAsyncImages:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_generate_price(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/generations/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = await async_client.images.generate_price(
@@ -287,7 +287,7 @@ class TestAsyncImages:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_upscale(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img-upscale").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/upscales").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.images.upscale(image=b"fake-image", model="realesrgan-x4")
@@ -296,7 +296,7 @@ class TestAsyncImages:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_remove_background(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img-rmbg").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/background-removals").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.images.remove_background(image=b"fake-image", model="rmbg-1.4")

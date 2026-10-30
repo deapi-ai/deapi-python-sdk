@@ -74,34 +74,4 @@ price = client.transcription.create_price(
 )
 print(f"Cost for 2 min audio: ${price.price}")
 
-# --- Legacy endpoints (if you need specific control) ---
-
-# Video URL (YouTube, Twitch, Twitter, TikTok, Kick):
-# job = client.transcription.from_video_url(
-#     video_url="https://youtube.com/watch?v=...",
-#     include_ts=True,
-#     model="WhisperLargeV3",
-# )
-
-# Audio URL (Twitter Spaces only):
-# job = client.transcription.from_audio_url(
-#     audio_url="https://twitter.com/i/spaces/...",
-#     include_ts=True,
-#     model="WhisperLargeV3",
-# )
-
-# Audio file upload:
-# job = client.transcription.from_audio_file(
-#     audio="recording.wav",
-#     include_ts=False,
-#     model="WhisperLargeV3",
-# )
-
-# Video file upload:
-# job = client.transcription.from_video_file(
-#     video="meeting.mp4",
-#     include_ts=True,
-#     model="WhisperLargeV3",
-# )
-
 client.close()

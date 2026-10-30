@@ -4,8 +4,8 @@ from datetime import date, datetime
 from typing import Any
 
 from deapi_sdk._client import AsyncHTTPClient, SyncHTTPClient
+from deapi_sdk.types.account import Account, PaymentsPage, UsageReport
 from deapi_sdk.types.common import Balance
-from deapi_sdk.types.v2.account import Account, PaymentsPage, UsageReport
 
 
 def _fmt_time(value: str | date | datetime | None) -> str | None:

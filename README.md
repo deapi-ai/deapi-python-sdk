@@ -11,11 +11,11 @@ Generate images, videos, audio, transcriptions, embeddings, and more — all thr
 
 - **Image generation** — text-to-image, image edits (one or many sources), upscale, background removal
 - **Video generation** — text-to-video, image-to-video (keyframes or reference images/videos/audio), audio-to-video, upscale
-- **Video description** — timestamped events and scenes of a video (API v2)
+- **Video description** — timestamped events and scenes of a video
 - **Audio** — text-to-speech (with voice cloning), text-to-music (with a style reference)
 - **Transcription** — URLs and file uploads, plain-text or structured JSON transcripts
 - **Embeddings, OCR, prompt enhancement**
-- **Account and keys** — balance, usage, payments, API-key management (API v2, ADMIN keys)
+- **Account and keys** — balance, usage, payments, API-key management (ADMIN keys)
 - **Sync + Async** — both `DeapiClient` and `AsyncDeapiClient`
 - **Job polling** — automatic exponential backoff with `.wait()`, resumable after a timeout
 - **Real-time status** — live job progress over WebSocket (optional `[ws]` extra)
@@ -90,7 +90,7 @@ client = DeapiClient(
     base_url="https://api.deapi.ai",            # or DEAPI_BASE_URL
     timeout=60.0,                               # request timeout in seconds (default: 30)
     max_retries=5,                              # retry attempts (default: 3)
-    api_version="v2",                           # default; "v1" selects the legacy API
+    api_version="v2",                           # only "v2" is accepted (default)
     fill_model_defaults=True,                   # default; see "Model-card defaults"
 )
 ```
@@ -114,8 +114,7 @@ with DeapiClient() as client:         # closes the HTTP connection on exit
     ...
 ```
 
-API `v2` is the default and what this README documents. The legacy `v1` API is still supported via
-`api_version="v1"` (see [Migrating from v1](#migrating-from-v1)).
+The SDK targets deAPI API v2. `api_version` accepts only `"v2"`; see [Upgrading to 0.4.0](#upgrading-to-040).
 
 ### Model-card defaults
 
@@ -191,7 +190,7 @@ job = client.video.generate_from_audio(
     model="ltx-audio2video",
 )
 
-# Describe a video (API v2): events, scenes and metadata
+# Describe a video: events, scenes and metadata
 job = client.video.describe(
     model="Marlin_2B",
     video_url="https://youtube.com/watch?v=dQw4w9WgXcQ",
@@ -275,8 +274,8 @@ enhanced = client.prompts.enhance(
 print(enhanced.prompt)
 ```
 
-`images.edits` and `videos.animations` also need `image=`. Legacy `enhance_image()`,
-`enhance_video()` etc. still work (with a `DeprecationWarning`); `samples()` was removed in v2.
+`images.edits` and `videos.animations` also need `image=`. The per-type methods
+`enhance_image()`, `enhance_video()` etc. were removed in 0.4.0 (see [Upgrading to 0.4.0](#upgrading-to-040)).
 
 ### Price Calculation
 
@@ -288,7 +287,7 @@ price = client.images.generate_price(prompt="a cat in space", model="Flux1schnel
 print(f"Cost: ${price.price}")
 ```
 
-### Account, Keys and Balance (API v2)
+### Account, Keys and Balance
 
 ```python
 client.balance().balance                        # ADMIN key only
@@ -525,20 +524,20 @@ async def handle_webhook(request: Request):
     return {"ok": True}
 ```
 
-## Migrating from v1
+## Upgrading to 0.4.0
 
-The SDK defaults to API `v2`. The Python surface is unchanged: the same method names work for both
-versions and only the URLs differ. What changes:
+0.4.0 supports only deAPI API v2 and removes everything that existed for API v1. `api_version` /
+`DEAPI_API_VERSION` still exist but accept only `"v2"` (the default); any other value raises `ValueError`.
 
-| What changed | v1 | v2 |
-|--------------|----|----|
-| Transcription | five separate methods | one unified `create()` (legacy methods warn and route to it) |
-| Prompt enhancement | `enhance_image`, `enhance_video`, `enhance_speech`, `enhance_image2image`, `samples` | one `enhance(type=..., model_slug=...)`; `samples()` removed |
-| Job polling URL | `/api/v1/client/request-status/{id}` | `/api/v2/jobs/{id}` (handled internally) |
-| New in v2 | | `webhook_secret`, `quality`/`enhance_prompt`, video reference mode and `describe()`, structured transcripts, `client.account`, `client.keys` |
+| Removed | Use instead |
+|---------|-------------|
+| `transcription.from_video_url()`, `from_audio_url()`, `from_audio_file()`, `from_video_file()` (and `*_price`) | `transcription.create(source_url=... \| source_file=..., ...)` / `create_price(...)` |
+| `prompts.enhance_image()`, `enhance_video()`, `enhance_speech()`, `enhance_image2image()` (and `*_price`) | `prompts.enhance(prompt=..., type=..., model_slug=...)` / `enhance_price(...)` |
+| `prompts.samples()` / `samples_price()` | no replacement (already raised `NotImplementedError`) |
+| Types `VideoToTextParams`, `AudioToTextParams`, `AudioFileToTextParams`, `VideoFileToTextParams`, `EnhanceSpeechPromptResult`, `SamplePromptResult` | no replacement |
+| Modules `deapi_sdk.resources.v1` / `.v2`, `deapi_sdk.types.v1` / `.v2` | `deapi_sdk.resources`, `deapi_sdk.types` (top-level `from deapi_sdk import ...` names are unchanged) |
 
-To stay on v1: `DeapiClient(api_key="sk-dp-<id>-<secret>", api_version="v1")` or `DEAPI_API_VERSION=v1`.
-`client.account` and `client.keys` exist on v2 only.
+`client.account` and `client.keys` are always available.
 
 ## API Reference
 

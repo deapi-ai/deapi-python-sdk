@@ -11,13 +11,12 @@ from deapi_sdk._files import FileInput, normalize_file
 from deapi_sdk._payload import drop_none, form_bool, webhook_fields
 from deapi_sdk._polling import AsyncJob, Job
 from deapi_sdk.types.common import JobResult, PriceResult
-from deapi_sdk.types.v1.video import VideoDescription, parse_video_description
+from deapi_sdk.types.video import VideoDescription, parse_video_description
 
 
 class Video:
-    """Sync video resource — generation, animation, audio-to-video, description, upscale (v1 and v2).
+    """Sync video resource — generation, animation, audio-to-video, description, upscale.
 
-    ``describe`` / ``describe_price`` exist on v2 only (``videos/descriptions``).
     ``replace`` and ``remove_background`` are kept for compatibility: the routes still exist, but no model
     currently serves them (use ``animate`` with reference images/videos instead).
     """
@@ -278,7 +277,7 @@ class Video:
         to the job status; only URL sources have any (a file returns null, uncharged).
         With ``return_result_in_response=True`` the JSON is also returned
         inline in ``JobResult.result``; otherwise download ``JobResult.result_url``. Use
-        :meth:`get_description` to get a typed :class:`~deapi.types.v1.video.VideoDescription`.
+        :meth:`get_description` to get a typed :class:`~deapi_sdk.types.video.VideoDescription`.
 
         Raises:
             ValueError: not exactly one source.
@@ -496,9 +495,8 @@ class Video:
 
 
 class AsyncVideo:
-    """Async video resource — generation, animation, audio-to-video, description, upscale (v1 and v2).
+    """Async video resource — generation, animation, audio-to-video, description, upscale.
 
-    ``describe`` / ``describe_price`` exist on v2 only (``videos/descriptions``).
     ``replace`` and ``remove_background`` are kept for compatibility: the routes still exist, but no model
     currently serves them (use ``animate`` with reference images/videos instead).
     """
@@ -759,7 +757,7 @@ class AsyncVideo:
         to the job status; only URL sources have any (a file returns null, uncharged).
         With ``return_result_in_response=True`` the JSON is also returned
         inline in ``JobResult.result``; otherwise download ``JobResult.result_url``. Use
-        :meth:`get_description` to get a typed :class:`~deapi.types.v1.video.VideoDescription`.
+        :meth:`get_description` to get a typed :class:`~deapi_sdk.types.video.VideoDescription`.
 
         Raises:
             ValueError: not exactly one source.

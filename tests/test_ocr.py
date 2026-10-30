@@ -15,7 +15,7 @@ PRICE_RESPONSE = {"data": {"price": 0.003}}
 class TestOCRExtract:
     @respx.mock
     def test_extract_returns_job(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2txt").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/ocr").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.ocr.extract(image=b"fake-png-data", model="Nanonets_Ocr_S_F16")
@@ -23,7 +23,7 @@ class TestOCRExtract:
 
     @respx.mock
     def test_extract_sends_multipart(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img2txt").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/ocr").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.ocr.extract(image=b"fake-png-data", model="Nanonets_Ocr_S_F16")
@@ -32,7 +32,7 @@ class TestOCRExtract:
 
     @respx.mock
     def test_extract_with_all_params(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img2txt").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/ocr").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.ocr.extract(
@@ -51,7 +51,7 @@ class TestOCRExtract:
 
     @respx.mock
     def test_extract_minimal_params(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img2txt").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/ocr").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.ocr.extract(image=b"fake-png-data", model="Nanonets_Ocr_S_F16")
@@ -64,7 +64,7 @@ class TestOCRExtract:
 class TestOCRExtractPrice:
     @respx.mock
     def test_extract_price_with_image(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2txt/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/ocr/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.ocr.extract_price(model="Nanonets_Ocr_S_F16", image=b"fake-png-data")
@@ -74,7 +74,7 @@ class TestOCRExtractPrice:
     def test_extract_price_with_dimensions(self, client: DeapiClient) -> None:
         import json
 
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img2txt/price-calculation").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/ocr/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.ocr.extract_price(model="Nanonets_Ocr_S_F16", width=1024, height=768)
@@ -86,7 +86,7 @@ class TestOCRExtractPrice:
 
     @respx.mock
     def test_extract_price_with_image_sends_multipart(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img2txt/price-calculation").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/ocr/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         client.ocr.extract_price(model="Nanonets_Ocr_S_F16", image=b"fake")
@@ -95,7 +95,7 @@ class TestOCRExtractPrice:
 
     @respx.mock
     def test_extract_price_without_image_sends_json(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img2txt/price-calculation").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/images/ocr/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         client.ocr.extract_price(model="Nanonets_Ocr_S_F16", width=512, height=512)
@@ -107,7 +107,7 @@ class TestAsyncOCR:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_extract(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2txt").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/ocr").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.ocr.extract(image=b"data", model="Nanonets_Ocr_S_F16")
@@ -116,7 +116,7 @@ class TestAsyncOCR:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_extract_price(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2txt/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/ocr/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = await async_client.ocr.extract_price(model="Nanonets_Ocr_S_F16", width=512, height=512)

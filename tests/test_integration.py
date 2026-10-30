@@ -38,13 +38,13 @@ requires_api_key = pytest.mark.skipif(
 @pytest.fixture
 def live_client() -> DeapiClient:
     """Create a real client pointed at production."""
-    return DeapiClient(api_key=DEAPI_API_KEY, api_version="v1")
+    return DeapiClient(api_key=DEAPI_API_KEY)
 
 
 @pytest.fixture
 async def live_async_client() -> AsyncDeapiClient:
     """Create a real async client pointed at production."""
-    return AsyncDeapiClient(api_key=DEAPI_API_KEY, api_version="v1")
+    return AsyncDeapiClient(api_key=DEAPI_API_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -176,10 +176,10 @@ class TestImagesIntegration:
 class TestTranscriptionIntegration:
     @requires_api_key
     def test_transcription_price_by_duration(self, live_client: DeapiClient) -> None:
-        """Use legacy vid2txt price endpoint with duration_seconds."""
+        """Price a transcription by duration_seconds."""
         model = _find_model(live_client, "video2text")
         assert model, "No video2text model available"
-        price = live_client.transcription.from_video_url_price(
+        price = live_client.transcription.create_price(
             include_ts=True,
             model=model.slug,
             duration_seconds=60.0,
@@ -226,25 +226,22 @@ class TestEmbeddingsIntegration:
 class TestPromptsIntegration:
     @requires_api_key
     def test_enhance_image_prompt(self, live_client: DeapiClient) -> None:
-        result = live_client.prompts.enhance_image(prompt="cat in space")
+        model = _find_model(live_client, "txt2img")
+        assert model, "No txt2img model available"
+        result = live_client.prompts.enhance(
+            prompt="cat in space", type="images.generations", model_slug=model.slug,
+        )
         assert result.prompt
         assert len(result.prompt) > len("cat in space")
 
     @requires_api_key
     def test_enhance_image_price(self, live_client: DeapiClient) -> None:
-        price = live_client.prompts.enhance_image_price(prompt="cat in space")
+        model = _find_model(live_client, "txt2img")
+        assert model, "No txt2img model available"
+        price = live_client.prompts.enhance_price(
+            prompt="cat in space", type="images.generations", model_slug=model.slug,
+        )
         assert price.price >= 0
-
-    @requires_api_key
-    def test_enhance_speech_prompt(self, live_client: DeapiClient) -> None:
-        result = live_client.prompts.enhance_speech(prompt="hello world")
-        assert result.prompt
-
-    @requires_api_key
-    def test_sample_prompt(self, live_client: DeapiClient) -> None:
-        result = live_client.prompts.samples(type="text2image")
-        assert result.prompt
-        assert result.type
 
 
 # ---------------------------------------------------------------------------

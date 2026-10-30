@@ -58,15 +58,51 @@ class TestClientInit:
             base_url="https://custom.deapi.ai",
             timeout=60.0,
             max_retries=5,
-            api_version="v1",
         )
         assert client._config.base_url == "https://custom.deapi.ai"
         assert client._config.timeout == 60.0
         assert client._config.max_retries == 5
 
-    def test_unsupported_api_version(self) -> None:
-        with pytest.raises(DeapiError, match="Unsupported API version"):
-            DeapiClient(api_key=TEST_API_KEY, api_version="v99")
+    @pytest.mark.parametrize("version", ["v1", "v99", "2"])
+    def test_unsupported_api_version(self, version: str) -> None:
+        with pytest.raises(ValueError, match="v2 only"):
+            DeapiClient(api_key=TEST_API_KEY, api_version=version)
+        with pytest.raises(ValueError, match="v2 only"):
+            AsyncDeapiClient(api_key=TEST_API_KEY, api_version=version)
+
+    def test_api_version_from_env_v1_rejected(self) -> None:
+        with mock.patch.dict(os.environ, {"DEAPI_API_KEY": "k", "DEAPI_API_VERSION": "v1"}):
+            with pytest.raises(ValueError, match="v2 only"):
+                DeapiClient()
+            with pytest.raises(ValueError, match="v2 only"):
+                ClientConfig.from_env()
+
+    @pytest.mark.parametrize("version", [None, "v2", "V2", " v2 "])
+    def test_api_version_v2_accepted(self, version: str | None) -> None:
+        config = ClientConfig.from_env(api_key=TEST_API_KEY, api_version=version)
+        assert config.api_version == "v2"
+        assert config.api_prefix == "/api/v2"
+
+    def test_api_version_from_env_v2_accepted(self) -> None:
+        with mock.patch.dict(os.environ, {"DEAPI_API_KEY": "k", "DEAPI_API_VERSION": "V2"}):
+            assert ClientConfig.from_env().api_version == "v2"
+
+    def test_explicit_api_version_v2_client(self) -> None:
+        with DeapiClient(api_key=TEST_API_KEY, api_version="V2") as client:
+            assert client._config.api_version == "v2"
+            assert client._config.api_prefix == "/api/v2"
+
+    def test_resolve_endpoint_builds_v2_url(self) -> None:
+        with DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            assert client._http_client._resolve_endpoint("request_status") == f"{TEST_BASE_URL}/api/v2/jobs"
+            assert client._http_client._resolve_endpoint("txt2img") == f"{TEST_BASE_URL}/api/v2/images/generations"
+
+    def test_resolve_endpoint_unknown_operation(self) -> None:
+        with (
+            DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client,
+            pytest.raises(DeapiError, match="Unknown API operation 'nope'"),
+        ):
+            client._http_client._resolve_endpoint("nope")
 
     def test_context_manager(self) -> None:
         with DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
@@ -82,7 +118,7 @@ class TestClientInit:
 class TestErrorMapping:
     @respx.mock
     def test_401_authentication_error(self, client: DeapiClient) -> None:
-        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(401, json={"message": "Unauthenticated."})
         )
         with pytest.raises(AuthenticationError, match="Unauthenticated"):
@@ -90,7 +126,7 @@ class TestErrorMapping:
 
     @respx.mock
     def test_403_account_suspended(self, client: DeapiClient) -> None:
-        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(403, json={"message": "Your account has been suspended."})
         )
         with pytest.raises(AccountSuspendedError, match="suspended"):
@@ -98,7 +134,7 @@ class TestErrorMapping:
 
     @respx.mock
     def test_404_not_found(self, client: DeapiClient) -> None:
-        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(404, json={"message": "Not found."})
         )
         with pytest.raises(NotFoundError):
@@ -106,7 +142,7 @@ class TestErrorMapping:
 
     @respx.mock
     def test_422_validation_error(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/generations").mock(
             return_value=httpx.Response(422, json={
                 "message": "The selected model does not support Text To Image.",
                 "errors": {"model": ["The selected model does not support Text To Image."]},
@@ -120,7 +156,7 @@ class TestErrorMapping:
 
     @respx.mock
     def test_422_insufficient_balance(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2img").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/images/generations").mock(
             return_value=httpx.Response(422, json={
                 "message": "Not enough balance.",
                 "errors": {"balance": ["Not enough balance."]},
@@ -133,7 +169,7 @@ class TestErrorMapping:
 
     @respx.mock
     def test_429_rate_limit(self, client: DeapiClient) -> None:
-        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(
                 429,
                 json={"message": "Too Many Attempts."},
@@ -142,7 +178,7 @@ class TestErrorMapping:
         )
         # max_retries=3 default, all attempts get 429 → eventually raises
         client_no_retry = DeapiClient(
-            api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=0, api_version="v1"
+            api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=0
         )
         with pytest.raises(RateLimitError) as exc_info:
             client_no_retry.balance()
@@ -151,11 +187,11 @@ class TestErrorMapping:
 
     @respx.mock
     def test_500_server_error(self, client: DeapiClient) -> None:
-        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(500, json={"message": "Server Error"})
         )
         client_no_retry = DeapiClient(
-            api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=0, api_version="v1"
+            api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=0
         )
         with pytest.raises(ServerError):
             client_no_retry.balance()
@@ -164,7 +200,7 @@ class TestErrorMapping:
 class TestBalance:
     @respx.mock
     def test_get_balance(self, client: DeapiClient) -> None:
-        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(200, json={"data": {"balance": 12.345}})
         )
         balance = client.balance()
@@ -174,8 +210,8 @@ class TestBalance:
 class TestRetryLogic:
     @respx.mock
     def test_retry_on_429(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=2, api_version="v1")
-        route = respx.get(f"{TEST_BASE_URL}/api/v1/client/balance")
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=2)
+        route = respx.get(f"{TEST_BASE_URL}/api/v2/account/balance")
         route.side_effect = [
             httpx.Response(429, json={"message": "Too Many Attempts."}, headers={"Retry-After": "0"}),
             httpx.Response(200, json={"data": {"balance": 5.0}}),
@@ -186,8 +222,8 @@ class TestRetryLogic:
 
     @respx.mock
     def test_retry_on_500(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=2, api_version="v1")
-        route = respx.get(f"{TEST_BASE_URL}/api/v1/client/balance")
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=2)
+        route = respx.get(f"{TEST_BASE_URL}/api/v2/account/balance")
         route.side_effect = [
             httpx.Response(500, json={"message": "Server Error"}),
             httpx.Response(200, json={"data": {"balance": 5.0}}),
@@ -198,8 +234,8 @@ class TestRetryLogic:
 
     @respx.mock
     def test_max_retries_exhausted(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=1, api_version="v1")
-        route = respx.get(f"{TEST_BASE_URL}/api/v1/client/balance")
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=1)
+        route = respx.get(f"{TEST_BASE_URL}/api/v2/account/balance")
         route.side_effect = [
             httpx.Response(500, json={"message": "Server Error"}),
             httpx.Response(500, json={"message": "Server Error"}),
@@ -213,7 +249,7 @@ class TestAsyncClient:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_balance(self, async_client: AsyncDeapiClient) -> None:
-        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(200, json={"data": {"balance": 99.99}})
         )
         balance = await async_client.balance()
@@ -222,10 +258,10 @@ class TestAsyncClient:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_context_manager(self) -> None:
-        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(200, json={"data": {"balance": 1.0}})
         )
-        async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1") as client:
+        async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             balance = await client.balance()
             assert balance.balance == 1.0
 
@@ -274,14 +310,13 @@ class TestInjectableHTTPClient:
 
     @respx.mock
     def test_injected_client_not_closed_and_auth_per_request(self) -> None:
-        route = respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        route = respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(200, json={"data": {"balance": 1.0}})
         )
         injected = httpx.Client()  # no auth baked into the transport
         client = DeapiClient(
             api_key=TEST_API_KEY,
             base_url=TEST_BASE_URL,
-            api_version="v1",
             http_client=injected,
         )
         assert client._http_client.owns_http_client is False
@@ -294,14 +329,13 @@ class TestInjectableHTTPClient:
 
     @respx.mock
     def test_injected_client_closed_when_owned(self) -> None:
-        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(200, json={"data": {"balance": 1.0}})
         )
         injected = httpx.Client()
         client = DeapiClient(
             api_key=TEST_API_KEY,
             base_url=TEST_BASE_URL,
-            api_version="v1",
             http_client=injected,
             owns_http_client=True,
         )
@@ -312,14 +346,13 @@ class TestInjectableHTTPClient:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_injected_client_not_closed(self) -> None:
-        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+        respx.get(f"{TEST_BASE_URL}/api/v2/account/balance").mock(
             return_value=httpx.Response(200, json={"data": {"balance": 2.0}})
         )
         injected = httpx.AsyncClient()
         client = AsyncDeapiClient(
             api_key=TEST_API_KEY,
             base_url=TEST_BASE_URL,
-            api_version="v1",
             http_client=injected,
         )
         assert client._http_client.owns_http_client is False

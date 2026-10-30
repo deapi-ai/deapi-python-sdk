@@ -10,7 +10,7 @@ from deapi_sdk.types.common import PriceResult
 
 
 class OCR:
-    """Sync image-to-text (OCR) resource (v1)."""
+    """Sync image-to-text (OCR) resource."""
 
     def __init__(self, client: SyncHTTPClient) -> None:
         self._client = client
@@ -68,7 +68,7 @@ class OCR:
 
 
 class AsyncOCR:
-    """Async image-to-text (OCR) resource (v1)."""
+    """Async image-to-text (OCR) resource."""
 
     def __init__(self, client: AsyncHTTPClient) -> None:
         self._client = client

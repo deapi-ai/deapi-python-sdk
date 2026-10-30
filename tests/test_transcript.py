@@ -113,9 +113,9 @@ class TestParseTranscript:
 
 class TestCreateParams:
     @respx.mock
-    def test_url_json_payload(self, client_v2: DeapiClient) -> None:
+    def test_url_json_payload(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions").mock(return_value=httpx.Response(200, json=JOB))
-        client_v2.transcription.create(
+        client.transcription.create(
             model="WhisperLargeV3Ct2", source_url="https://youtu.be/x", ts_level="word", diarize=True,
             lang="pl", include_metadata=True, webhook_url="https://hook.example.com/h", webhook_secret="s" * 32,
         )
@@ -127,23 +127,23 @@ class TestCreateParams:
         }
 
     @respx.mock
-    def test_unset_fields_omitted(self, client_v2: DeapiClient) -> None:
+    def test_unset_fields_omitted(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions").mock(return_value=httpx.Response(200, json=JOB))
-        client_v2.transcription.create(model="WhisperLargeV3", source_url="https://x.test/a.mp3")
+        client.transcription.create(model="WhisperLargeV3", source_url="https://x.test/a.mp3")
         assert json.loads(route.calls.last.request.content) == {
             "source_url": "https://x.test/a.mp3", "model": "WhisperLargeV3",
         }
 
     @respx.mock
-    def test_explicit_include_ts_false_kept(self, client_v2: DeapiClient) -> None:
+    def test_explicit_include_ts_false_kept(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions").mock(return_value=httpx.Response(200, json=JOB))
-        client_v2.transcription.create(model="m", source_url="https://x.test/a", include_ts=False)
+        client.transcription.create(model="m", source_url="https://x.test/a", include_ts=False)
         assert json.loads(route.calls.last.request.content)["include_ts"] is False
 
     @respx.mock
-    def test_file_multipart_bools(self, client_v2: DeapiClient) -> None:
+    def test_file_multipart_bools(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions").mock(return_value=httpx.Response(200, json=JOB))
-        client_v2.transcription.create(
+        client.transcription.create(
             model="WhisperLargeV3Ct2", source_file=b"audio", diarize=True, lang="en", return_result_in_response=False,
         )
         req = route.calls.last.request
@@ -154,45 +154,35 @@ class TestCreateParams:
         assert 'name="ts_level"' not in body and 'name="include_metadata"' not in body
 
     @respx.mock
-    def test_include_metadata_with_file_allowed(self, client_v2: DeapiClient) -> None:
+    def test_include_metadata_with_file_allowed(self, client: DeapiClient) -> None:
         # Spec: a file upload simply returns null metadata and is never charged for the flag.
         job = respx.post(f"{V2}/audio/transcriptions").mock(return_value=httpx.Response(200, json=JOB))
         price = respx.post(f"{V2}/audio/transcriptions/price").mock(return_value=httpx.Response(200, json=PRICE))
-        client_v2.transcription.create(model="m", source_file=b"a", include_metadata=True)
-        client_v2.transcription.create_price(model="m", source_file=b"a", include_metadata=True)
+        client.transcription.create(model="m", source_file=b"a", include_metadata=True)
+        client.transcription.create_price(model="m", source_file=b"a", include_metadata=True)
         for route in (job, price):
             assert 'name="include_metadata"\r\n\r\n1\r\n' in route.calls.last.request.content.decode("latin-1")
 
     @respx.mock
-    def test_price_sends_lang(self, client_v2: DeapiClient) -> None:
+    def test_price_sends_lang(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions/price").mock(return_value=httpx.Response(200, json=PRICE))
-        client_v2.transcription.create_price(model="m", source_url="https://x.test/a", lang="pl")
+        client.transcription.create_price(model="m", source_url="https://x.test/a", lang="pl")
         assert json.loads(route.calls.last.request.content) == {
             "model": "m", "lang": "pl", "source_url": "https://x.test/a",
         }
 
-    def test_webhook_secret_validation(self, client_v2: DeapiClient) -> None:
+    def test_webhook_secret_validation(self, client: DeapiClient) -> None:
         with pytest.raises(ValueError, match="requires webhook_url"):
-            client_v2.transcription.create(model="m", source_url="https://x.test/a", webhook_secret="s" * 32)
+            client.transcription.create(model="m", source_url="https://x.test/a", webhook_secret="s" * 32)
         with pytest.raises(ValueError, match="32-255"):
-            client_v2.transcription.create(
+            client.transcription.create(
                 model="m", source_url="https://x.test/a", webhook_url="https://h.test/x", webhook_secret="short",
             )
 
     @respx.mock
-    def test_legacy_wrapper_forwards_new_options(self, client_v2: DeapiClient) -> None:
-        route = respx.post(f"{V2}/audio/transcriptions").mock(return_value=httpx.Response(200, json=JOB))
-        with pytest.warns(DeprecationWarning):
-            client_v2.transcription.from_audio_url(
-                audio_url="https://x.test/a", include_ts=True, model="m", ts_level="segment", lang="en",
-            )
-        body = json.loads(route.calls.last.request.content)
-        assert body["ts_level"] == "segment" and body["lang"] == "en"
-
-    @respx.mock
-    def test_price_params(self, client_v2: DeapiClient) -> None:
+    def test_price_params(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions/price").mock(return_value=httpx.Response(200, json=PRICE))
-        price = client_v2.transcription.create_price(
+        price = client.transcription.create_price(
             model="WhisperLargeV3Ct2", duration_seconds=240, platform="tiktok", ts_level="word", include_metadata=True,
         )
         assert price.price == 0.07
@@ -202,18 +192,18 @@ class TestCreateParams:
         }
 
     @respx.mock
-    def test_price_file_multipart(self, client_v2: DeapiClient) -> None:
+    def test_price_file_multipart(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions/price").mock(return_value=httpx.Response(200, json=PRICE))
-        client_v2.transcription.create_price(model="m", source_file=b"a", diarize=True)
+        client.transcription.create_price(model="m", source_file=b"a", diarize=True)
         req = route.calls.last.request
         assert "multipart/form-data" in req.headers["content-type"]
         assert 'name="diarize"\r\n\r\n1\r\n' in req.content.decode("latin-1")
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_params(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_async_params(self, async_client: AsyncDeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions").mock(return_value=httpx.Response(200, json=JOB))
-        await async_client_v2.transcription.create(
+        await async_client.transcription.create(
             model="m", source_url="https://x.test/a", ts_level="word", lang="en", include_metadata=True,
         )
         body = json.loads(route.calls.last.request.content)
@@ -221,9 +211,9 @@ class TestCreateParams:
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_price(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_async_price(self, async_client: AsyncDeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions/price").mock(return_value=httpx.Response(200, json=PRICE))
-        await async_client_v2.transcription.create_price(model="m", duration_seconds=10, diarize=True)
+        await async_client.transcription.create_price(model="m", duration_seconds=10, diarize=True)
         body = json.loads(route.calls.last.request.content)
         assert body["diarize"] is True and body["include_ts"] is True
 
@@ -232,99 +222,99 @@ class TestCreateParams:
 
 
 class TestGetTranscript:
-    def test_inline_json_no_http(self, client_v2: DeapiClient) -> None:
+    def test_inline_json_no_http(self, client: DeapiClient) -> None:
         with respx.mock:  # any request would fail: no routes
-            t = client_v2.transcription.get_transcript(done(result=json.dumps(CT2_JSON)))
+            t = client.transcription.get_transcript(done(result=json.dumps(CT2_JSON)))
         assert isinstance(t, Transcript) and t.format == "json" and len(t.segments) == 2
 
-    def test_inline_plain_text(self, client_v2: DeapiClient) -> None:
-        t = client_v2.transcription.get_transcript(done(result="[0:00 - 0:03] hi"), output_format=None)
+    def test_inline_plain_text(self, client: DeapiClient) -> None:
+        t = client.transcription.get_transcript(done(result="[0:00 - 0:03] hi"), output_format=None)
         assert t.format == "text" and t.text == "[0:00 - 0:03] hi"
 
     @respx.mock
-    def test_download_has_no_auth_header(self, client_v2: DeapiClient) -> None:
+    def test_download_has_no_auth_header(self, client: DeapiClient) -> None:
         route = respx.get(STORAGE).mock(return_value=httpx.Response(200, text=json.dumps(CT2_JSON)))
-        t = client_v2.transcription.get_transcript(done(result_url=STORAGE), output_format="json")
+        t = client.transcription.get_transcript(done(result_url=STORAGE), output_format="json")
         assert t.format == "json" and t.language == "en"
         headers = route.calls.last.request.headers
         assert "authorization" not in headers
 
     @respx.mock
-    def test_download_plain_text(self, client_v2: DeapiClient) -> None:
+    def test_download_plain_text(self, client: DeapiClient) -> None:
         respx.get(STORAGE).mock(return_value=httpx.Response(200, text="plain words"))
-        t = client_v2.transcription.get_transcript(done(result_url=STORAGE))
+        t = client.transcription.get_transcript(done(result_url=STORAGE))
         assert t.format == "text" and t.text == "plain words"
 
     @respx.mock
-    def test_download_error_raises(self, client_v2: DeapiClient) -> None:
+    def test_download_error_raises(self, client: DeapiClient) -> None:
         from deapi_sdk import DeapiError
 
         respx.get(STORAGE).mock(return_value=httpx.Response(404, text="gone"))
         with pytest.raises(DeapiError, match="HTTP 404") as ei:
-            client_v2.transcription.get_transcript(done(result_url=STORAGE))
+            client.transcription.get_transcript(done(result_url=STORAGE))
         assert ei.value.status_code == 404
 
     @respx.mock
     @pytest.mark.parametrize("status", [401, 403])
-    def test_storage_auth_error_is_not_an_account_error(self, client_v2: DeapiClient, status: int) -> None:
+    def test_storage_auth_error_is_not_an_account_error(self, client: DeapiClient, status: int) -> None:
         from deapi_sdk import AuthenticationError, DeapiError, PermissionDeniedError
 
         respx.get(STORAGE).mock(return_value=httpx.Response(status, text="denied"))
         with pytest.raises(DeapiError) as ei:
-            client_v2.transcription.get_transcript(done(result_url=STORAGE))
+            client.transcription.get_transcript(done(result_url=STORAGE))
         assert not isinstance(ei.value, (AuthenticationError, PermissionDeniedError))
         assert ei.value.status_code == status
 
     @respx.mock
-    def test_transport_error_is_network_error(self, client_v2: DeapiClient) -> None:
+    def test_transport_error_is_network_error(self, client: DeapiClient) -> None:
         from deapi_sdk import NetworkError
 
         respx.get(STORAGE).mock(side_effect=httpx.ConnectError("boom"))
         with pytest.raises(NetworkError):
-            client_v2.transcription.get_transcript(done(result_url=STORAGE))
+            client.transcription.get_transcript(done(result_url=STORAGE))
 
     @respx.mock
-    async def test_async_download_error(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_async_download_error(self, async_client: AsyncDeapiClient) -> None:
         from deapi_sdk import DeapiError, NetworkError
 
         respx.get(STORAGE).mock(return_value=httpx.Response(403))
         with pytest.raises(DeapiError, match="HTTP 403") as ei:
-            await async_client_v2.transcription.get_transcript(done(result_url=STORAGE))
+            await async_client.transcription.get_transcript(done(result_url=STORAGE))
         assert type(ei.value) is DeapiError
         respx.get(STORAGE).mock(side_effect=httpx.ConnectError("boom"))
         with pytest.raises(NetworkError):
-            await async_client_v2.transcription.get_transcript(done(result_url=STORAGE))
+            await async_client.transcription.get_transcript(done(result_url=STORAGE))
 
     def test_empty_inline_result_falls_back_to_url(self) -> None:
-        from deapi_sdk.resources.v2.transcription import _pick_result_source
+        from deapi_sdk.resources.transcription import _pick_result_source
 
         assert _pick_result_source(done(result="", result_url=STORAGE), None) == (None, STORAGE)
 
-    def test_create_price_rejects_both_sources(self, client_v2: DeapiClient) -> None:
+    def test_create_price_rejects_both_sources(self, client: DeapiClient) -> None:
         with pytest.raises(ValueError, match="not both"):
-            client_v2.transcription.create_price(model="m", source_url="https://x.example/a.mp3", source_file=b"x")
+            client.transcription.create_price(model="m", source_url="https://x.example/a.mp3", source_file=b"x")
 
     @respx.mock
-    def test_alt_format_choice(self, client_v2: DeapiClient) -> None:
+    def test_alt_format_choice(self, client: DeapiClient) -> None:
         txt_url = "https://storage.example.com/results/tr-1.txt"
         route = respx.get(txt_url).mock(return_value=httpx.Response(200, text='{"text": "looks like json"}'))
         result = done(result=json.dumps(CT2_JSON), result_url=STORAGE, results_alt_formats={"txt": txt_url})
-        t = client_v2.transcription.get_transcript(result, alt_format="txt")
+        t = client.transcription.get_transcript(result, alt_format="txt")
         assert route.called
         assert t.format == "text"  # a txt rendition is never decoded
         with pytest.raises(ValueError, match="No 'srt' rendition"):
-            client_v2.transcription.get_transcript(result, alt_format="srt")
+            client.transcription.get_transcript(result, alt_format="srt")
 
-    def test_nothing_to_read(self, client_v2: DeapiClient) -> None:
+    def test_nothing_to_read(self, client: DeapiClient) -> None:
         with pytest.raises(ValueError, match="neither"):
-            client_v2.transcription.get_transcript(done())
+            client.transcription.get_transcript(done())
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_inline_and_download(self, async_client_v2: AsyncDeapiClient) -> None:
-        t = await async_client_v2.transcription.get_transcript(done(result=json.dumps(CT2_JSON)))
+    async def test_async_inline_and_download(self, async_client: AsyncDeapiClient) -> None:
+        t = await async_client.transcription.get_transcript(done(result=json.dumps(CT2_JSON)))
         assert t.format == "json"
         route = respx.get(STORAGE).mock(return_value=httpx.Response(200, text=json.dumps(CT2_JSON)))
-        t = await async_client_v2.transcription.get_transcript(done(result_url=STORAGE))
+        t = await async_client.transcription.get_transcript(done(result_url=STORAGE))
         assert t.format == "json" and t.segments[0].words[0].word == "Hello"
         assert "authorization" not in route.calls.last.request.headers
