@@ -9,7 +9,7 @@ from deapi_sdk.types.common import PriceResult
 
 
 class Embeddings:
-    """Sync embeddings resource (v1)."""
+    """Sync embeddings resource."""
 
     def __init__(self, client: SyncHTTPClient) -> None:
         self._client = client
@@ -53,7 +53,7 @@ class Embeddings:
 
 
 class AsyncEmbeddings:
-    """Async embeddings resource (v1)."""
+    """Async embeddings resource."""
 
     def __init__(self, client: AsyncHTTPClient) -> None:
         self._client = client

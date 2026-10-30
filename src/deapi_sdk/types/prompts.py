@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-# Inference types the v2 prompt booster accepts (v2 dot notation). Upscaling, background
+# Inference types the prompt booster accepts (dot notation). Upscaling, background
 # removal, OCR, transcription and embeddings have no booster and are rejected with 422.
 PromptBoosterType = Literal[
     "images.generations",
@@ -20,17 +20,7 @@ PROMPT_BOOSTER_TYPES_REQUIRING_IMAGE = ("images.edits", "videos.animations")
 
 
 class EnhancePromptResult(BaseModel):
-    """Result from prompt enhancement endpoints (image, video, image2image)."""
+    """Result of the prompt enhancement endpoint."""
     prompt: str
     negative_prompt: str | None = None
 
-
-class EnhanceSpeechPromptResult(BaseModel):
-    """Result from speech prompt enhancement (no negative_prompt)."""
-    prompt: str
-
-
-class SamplePromptResult(BaseModel):
-    """Result from sample prompts endpoint."""
-    type: str
-    prompt: str

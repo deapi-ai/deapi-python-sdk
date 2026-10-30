@@ -5,9 +5,9 @@ from datetime import date, datetime
 from typing import Any
 
 from deapi_sdk._client import AsyncHTTPClient, SyncHTTPClient
-from deapi_sdk.resources.v2.account import page_params, parse_usage, unwrap, usage_params
-from deapi_sdk.types.v2.account import UsageReport
-from deapi_sdk.types.v2.keys import ApiKey, ApiKeyCreated, ApiKeysPage
+from deapi_sdk.resources.account import page_params, parse_usage, unwrap, usage_params
+from deapi_sdk.types.account import UsageReport
+from deapi_sdk.types.keys import ApiKey, ApiKeyCreated, ApiKeysPage
 
 # Sentinel: a field that was not passed must not be sent in a PATCH (None means "clear it").
 _UNSET: Any = object()

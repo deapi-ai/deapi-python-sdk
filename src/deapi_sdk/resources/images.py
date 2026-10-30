@@ -8,7 +8,7 @@ from deapi_sdk._files import FileInput, normalize_file, normalize_files
 from deapi_sdk._payload import drop_none, form_bool, webhook_fields
 from deapi_sdk._polling import AsyncJob, Job
 from deapi_sdk.types.common import PriceResult
-from deapi_sdk.types.v1.images import LoraWeight
+from deapi_sdk.types.images import LoraWeight
 
 
 class Images:

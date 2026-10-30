@@ -20,7 +20,7 @@ PRICE_RESPONSE = {"data": {"price": 0.50}}
 class TestVideoGenerate:
     @respx.mock
     def test_generate_returns_job(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2video").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/generations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.video.generate(
@@ -37,7 +37,7 @@ class TestVideoGenerate:
 
     @respx.mock
     def test_generate_sends_correct_payload(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2video").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/videos/generations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.video.generate(
@@ -68,7 +68,7 @@ class TestVideoGenerate:
 
     @respx.mock
     def test_generate_minimal_payload(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2video").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/videos/generations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.video.generate(
@@ -82,7 +82,7 @@ class TestVideoGenerate:
 
     @respx.mock
     def test_generate_price(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2video/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/generations/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.video.generate_price(
@@ -95,7 +95,7 @@ class TestVideoGenerate:
 class TestVideoAnimate:
     @respx.mock
     def test_animate_returns_job(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2video").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/animations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.video.animate(
@@ -112,7 +112,7 @@ class TestVideoAnimate:
 
     @respx.mock
     def test_animate_sends_multipart(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img2video").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/videos/animations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.video.animate(
@@ -130,7 +130,7 @@ class TestVideoAnimate:
 
     @respx.mock
     def test_animate_with_file_path(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2video").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/animations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
@@ -152,7 +152,7 @@ class TestVideoAnimate:
 
     @respx.mock
     def test_animate_with_last_frame(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2video").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/animations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.video.animate(
@@ -170,7 +170,7 @@ class TestVideoAnimate:
 
     @respx.mock
     def test_animate_with_optional_params(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/img2video").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/videos/animations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.video.animate(
@@ -191,7 +191,7 @@ class TestVideoAnimate:
 
     @respx.mock
     def test_animate_price(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2video/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/animations/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.video.animate_price(
@@ -203,7 +203,7 @@ class TestVideoAnimate:
 class TestVideoGenerateFromAudio:
     @respx.mock
     def test_generate_from_audio_returns_job(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/audio-syncs").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.video.generate_from_audio(
@@ -220,7 +220,7 @@ class TestVideoGenerateFromAudio:
 
     @respx.mock
     def test_generate_from_audio_sends_multipart(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/videos/audio-syncs").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.video.generate_from_audio(
@@ -232,7 +232,7 @@ class TestVideoGenerateFromAudio:
 
     @respx.mock
     def test_generate_from_audio_with_frame_images(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/audio-syncs").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.video.generate_from_audio(
@@ -254,7 +254,7 @@ class TestVideoGenerateFromAudio:
 
     @respx.mock
     def test_generate_from_audio_price(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/audio-syncs/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.video.generate_from_audio_price(
@@ -264,7 +264,7 @@ class TestVideoGenerateFromAudio:
 
     @respx.mock
     def test_generate_from_audio_price_with_optional(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video/price-calculation").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/videos/audio-syncs/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.video.generate_from_audio_price(
@@ -280,7 +280,7 @@ class TestVideoGenerateFromAudio:
 class TestVideoReplace:
     @respx.mock
     def test_replace_returns_job(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/replacements").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.video.replace(
@@ -292,7 +292,7 @@ class TestVideoReplace:
 
     @respx.mock
     def test_replace_sends_multipart(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/videos/replacements").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.video.replace(
@@ -303,7 +303,7 @@ class TestVideoReplace:
 
     @respx.mock
     def test_replace_with_all_params(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/replacements").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.video.replace(
@@ -321,7 +321,7 @@ class TestVideoReplace:
 
     @respx.mock
     def test_replace_price_with_video(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace/price").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/replacements/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.video.replace_price(
@@ -335,7 +335,7 @@ class TestVideoReplace:
 
     @respx.mock
     def test_replace_price_with_duration(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace/price").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/replacements/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.video.replace_price(
@@ -347,7 +347,7 @@ class TestVideoReplace:
 class TestVideoUpscale:
     @respx.mock
     def test_upscale_returns_job(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/vid-upscale").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/upscales").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.video.upscale(
@@ -358,7 +358,7 @@ class TestVideoUpscale:
 
     @respx.mock
     def test_upscale_sends_multipart(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/vid-upscale").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/videos/upscales").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.video.upscale(video=b"fake-video", model="realesrgan-video")
@@ -367,7 +367,7 @@ class TestVideoUpscale:
 
     @respx.mock
     def test_upscale_price_with_dimensions(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/vid-upscale/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/upscales/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.video.upscale_price(
@@ -377,7 +377,7 @@ class TestVideoUpscale:
 
     @respx.mock
     def test_upscale_price_with_file(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/vid-upscale/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/upscales/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.video.upscale_price(
@@ -389,7 +389,7 @@ class TestVideoUpscale:
 class TestVideoRemoveBackground:
     @respx.mock
     def test_rmbg_returns_job(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/vid-rmbg").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/background-removals").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.video.remove_background(
@@ -400,7 +400,7 @@ class TestVideoRemoveBackground:
 
     @respx.mock
     def test_rmbg_sends_multipart(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/vid-rmbg").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/videos/background-removals").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.video.remove_background(video=b"fake-video", model="rmbg-video")
@@ -409,7 +409,7 @@ class TestVideoRemoveBackground:
 
     @respx.mock
     def test_rmbg_with_webhook(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/vid-rmbg").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/background-removals").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.video.remove_background(
@@ -421,7 +421,7 @@ class TestVideoRemoveBackground:
 
     @respx.mock
     def test_rmbg_price_with_dimensions(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/vid-rmbg/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/background-removals/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.video.remove_background_price(
@@ -434,7 +434,7 @@ class TestAsyncVideo:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_generate(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2video").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/generations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.video.generate(
@@ -446,7 +446,7 @@ class TestAsyncVideo:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_animate(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2video").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/animations").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.video.animate(
@@ -464,7 +464,7 @@ class TestAsyncVideo:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_upscale(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/vid-upscale").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/upscales").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.video.upscale(
@@ -475,7 +475,7 @@ class TestAsyncVideo:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_remove_background(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/vid-rmbg").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/background-removals").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.video.remove_background(
@@ -486,7 +486,7 @@ class TestAsyncVideo:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_generate_price(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2video/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/generations/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = await async_client.video.generate_price(
@@ -498,7 +498,7 @@ class TestAsyncVideo:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_animate_price(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/img2video/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/animations/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = await async_client.video.animate_price(
@@ -509,7 +509,7 @@ class TestAsyncVideo:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_generate_from_audio(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/audio-syncs").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.video.generate_from_audio(
@@ -522,7 +522,7 @@ class TestAsyncVideo:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_generate_from_audio_price(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/aud2video/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/audio-syncs/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = await async_client.video.generate_from_audio_price(
@@ -533,7 +533,7 @@ class TestAsyncVideo:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_replace(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/replacements").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.video.replace(
@@ -545,7 +545,7 @@ class TestAsyncVideo:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_replace_price(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/videos/replace/price").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/videos/replacements/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = await async_client.video.replace_price(

@@ -1,7 +1,7 @@
 # DeAPI Python SDK — API Reference
 
-Reference for the classes, methods and types in the `deapi_sdk` package. It describes API **v2** (the
-default). The HTTP API itself is documented at <https://docs.deapi.ai>.
+Reference for the classes, methods and types in the `deapi_sdk` package. It describes deAPI API **v2**, the only version supported since 0.4.0 (see
+[Upgrading to 0.4.0](../README.md#upgrading-to-040) for the breaking changes). The HTTP API itself is documented at <https://docs.deapi.ai>.
 
 Install: `pip install git+https://github.com/deapi-ai/deapi-python-sdk.git` (not on PyPI yet;
 `pip install deapi` is an unrelated package).
@@ -19,8 +19,8 @@ Install: `pip install git+https://github.com/deapi-ai/deapi-python-sdk.git` (not
 - [Resource: prompts](#resource-prompts)
 - [Resource: models](#resource-models)
 - [Resource: jobs](#resource-jobs)
-- [Resource: account (v2)](#resource-account-v2)
-- [Resource: keys (v2)](#resource-keys-v2)
+- [Resource: account](#resource-account)
+- [Resource: keys](#resource-keys)
 - [Job Polling](#job-polling)
 - [Realtime (WebSocket)](#realtime-websocket)
 - [Types & Models](#types--models)
@@ -43,7 +43,7 @@ client = DeapiClient(
     base_url: str | None = None,           # Falls back to DEAPI_BASE_URL (default "https://api.deapi.ai")
     timeout: float | None = None,          # Request timeout in seconds (default 30.0)
     max_retries: int | None = None,        # Retry attempts (default 3), see "Retry policy"
-    api_version: str | None = None,        # Falls back to DEAPI_API_VERSION (default "v2"; "v1" = legacy API)
+    api_version: str | None = None,        # Falls back to DEAPI_API_VERSION (only "v2" is accepted, default)
     fill_model_defaults: bool | None = None,  # Falls back to DEAPI_FILL_MODEL_DEFAULTS (default on)
 )
 ```
@@ -58,7 +58,7 @@ account and key-management endpoints.
 | `client.close()` | `None` | Close the HTTP connection |
 
 **Resources:** `images`, `audio`, `video`, `transcription`, `embeddings`, `ocr`, `prompts`, `models`,
-`jobs`, and on v2 only `account` and `keys`.
+`jobs`, `account` and `keys`.
 
 ```python
 with DeapiClient() as client:
@@ -120,7 +120,7 @@ job = client.images.generate(
     negative_prompt: str | None = None,
     loras: list[LoraWeight | dict] | None = None,   # [{"name": "...", "weight": 0.8}]
     quality: str | None = None,                     # model tier, e.g. "low" | "medium" | "high"
-    enhance_prompt: bool | None = None,             # boost the prompt inside the job (v2)
+    enhance_prompt: bool | None = None,             # boost the prompt inside the job
     webhook_url: str | None = None,
     webhook_secret: str | None = None,
 ) -> Job
@@ -244,7 +244,7 @@ job = client.video.generate(
     fps: int | None = None,
     negative_prompt: str | None = None,
     guidance: float | None = None,
-    enhance_prompt: bool | None = None,     # needs a prompt-booster guide for the model (v2)
+    enhance_prompt: bool | None = None,     # needs a prompt-booster guide for the model
     webhook_url: str | None = None,
     webhook_secret: str | None = None,
 ) -> Job
@@ -293,7 +293,7 @@ Audio-to-video: `prompt`, `audio` (MP3/WAV/OGG/FLAC), `model`, optional `first_f
 `last_frame_image`, `width`, `height`, `frames`, `fps`, `steps`, `seed`, `negative_prompt`,
 `guidance`, webhook params. `generate_from_audio_price()` takes the sizing parameters.
 
-### `describe()` / `describe_price()` / `get_description()` (v2)
+### `describe()` / `describe_price()` / `get_description()`
 
 Timestamped index of what happens on screen (reads the picture, not the audio).
 
@@ -404,11 +404,6 @@ class TranscriptSegment(BaseModel):       # start, end, text, speaker, words
 class TranscriptWord(BaseModel):          # word, start, end, speaker, score
 ```
 
-### Legacy methods
-
-`from_video_url`, `from_audio_url`, `from_audio_file`, `from_video_file` (and `*_price`) emit a
-`DeprecationWarning` on v2 and route through `create()`.
-
 ---
 
 ## Resource: embeddings
@@ -462,12 +457,6 @@ result = client.prompts.enhance(
 `videos.upscales`, `videos.background-removals`, `audio.speech`, `audio.music`,
 `audio.transcriptions`, `embeddings`. `enhance_price()` takes the same parameters.
 
-### Legacy methods
-
-`enhance_image`, `enhance_video`, `enhance_speech`, `enhance_image2image` (and `*_price`) emit a
-`DeprecationWarning` on v2, route to `enhance()` and require `model_slug`. `samples()` /
-`samples_price()` were removed in v2 and raise `NotImplementedError`.
-
 ---
 
 ## Resource: models
@@ -504,9 +493,9 @@ result = client.jobs.get(request_id).wait()
 
 ---
 
-## Resource: account (v2)
+## Resource: account
 
-API v2 only. **Every call needs an ADMIN key**; an API key gets 403 `insufficient_permissions`
+**Every call needs an ADMIN key**; an API key gets 403 `insufficient_permissions`
 (`InsufficientPermissionsError`).
 
 | Method | Returns | Endpoint |
@@ -521,9 +510,9 @@ API v2 only. **Every call needs an ADMIN key**; an API key gets 403 `insufficien
 
 ---
 
-## Resource: keys (v2)
+## Resource: keys
 
-API v2 only. `current()` and `current_usage()` work with any key; everything else needs an ADMIN key.
+`current()` and `current_usage()` work with any key; everything else needs an ADMIN key.
 
 | Method | Returns |
 |--------|---------|
@@ -663,9 +652,9 @@ class ModelsResponse(BaseModel):  data: list[ModelInfo]; links; meta   # meta.cu
 class EnhancePromptResult(BaseModel):  prompt: str; negative_prompt: str | None
 ```
 
-v2 account and key types: `Account`, `AutoTopUp`, `Payment`, `PaymentsPage`, `UsageReport`
+Account and key types: `Account`, `AutoTopUp`, `Payment`, `PaymentsPage`, `UsageReport`
 (`totals`, `groups`, shortcuts `cost` / `requests` / `errors`), `ApiKey` (never contains the
-secret), `ApiKeyCreated` (adds `secret`), `ApiKeysPage`; import from `deapi.types.v2`.
+secret), `ApiKeyCreated` (adds `secret`), `ApiKeysPage`; import from `deapi_sdk.types`.
 
 ```python
 class JobStatus(StrEnum):  PENDING, PROCESSING, DONE, ERROR
@@ -805,7 +794,7 @@ class WebhookEventData(BaseModel):
 |----------|---------|-------------|
 | `DEAPI_API_KEY` | *(required)* | API key, `sk-dp-<id>-<secret>` |
 | `DEAPI_BASE_URL` | `https://api.deapi.ai` | API base URL |
-| `DEAPI_API_VERSION` | `v2` | API version (`v1` = legacy) |
+| `DEAPI_API_VERSION` | `v2` | API version (only `v2` is accepted) |
 | `DEAPI_FILL_MODEL_DEFAULTS` | on | `0` stops the SDK filling unset parameters from model-card defaults |
 | `DEAPI_CLIENT_ID` | *(none)* | Client ID for `client.realtime()` when `client_id` is not passed |
 | `DEAPI_WS_URL` | `wss://soketi.deapi.ai` | WebSocket URL (non-production environments only) |

@@ -31,9 +31,9 @@ def _page(slugs: list[str], page: int, last: int) -> dict:
 
 class TestModelsSync:
     @respx.mock
-    def test_limit_and_page_params(self, client_v2: DeapiClient) -> None:
+    def test_limit_and_page_params(self, client: DeapiClient) -> None:
         route = respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=_page(["a"], 2, 3)))
-        result = client_v2.models.list(limit=50, page=2)
+        result = client.models.list(limit=50, page=2)
         params = route.calls.last.request.url.params
         assert params["limit"] == "50"
         assert params["page"] == "2"
@@ -41,116 +41,116 @@ class TestModelsSync:
         assert result.meta.current_page == 2
 
     @respx.mock
-    def test_default_sends_no_limit(self, client_v2: DeapiClient) -> None:
+    def test_default_sends_no_limit(self, client: DeapiClient) -> None:
         route = respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=_page(["a"], 1, 1)))
-        client_v2.models.list()
+        client.models.list()
         assert "limit" not in route.calls.last.request.url.params
 
     @respx.mock
-    def test_per_page_deprecated_alias(self, client_v2: DeapiClient) -> None:
+    def test_per_page_deprecated_alias(self, client: DeapiClient) -> None:
         route = respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=_page(["a"], 1, 1)))
         with pytest.warns(DeprecationWarning, match="per_page"):
-            client_v2.models.list(per_page=7)
+            client.models.list(per_page=7)
         params = route.calls.last.request.url.params
         assert params["limit"] == "7"
         assert "per_page" not in params
 
     @respx.mock
-    def test_limit_wins_over_per_page(self, client_v2: DeapiClient) -> None:
+    def test_limit_wins_over_per_page(self, client: DeapiClient) -> None:
         route = respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=_page(["a"], 1, 1)))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            client_v2.models.list(limit=10, per_page=7)
+            client.models.list(limit=10, per_page=7)
         assert route.calls.last.request.url.params["limit"] == "10"
 
     @respx.mock
-    def test_tags_and_sort(self, client_v2: DeapiClient) -> None:
+    def test_tags_and_sort(self, client: DeapiClient) -> None:
         route = respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=_page(["a"], 1, 1)))
-        client_v2.models.list(tags=["new", "beta"], sort="-name")
+        client.models.list(tags=["new", "beta"], sort="-name")
         params = route.calls.last.request.url.params
         assert params["filter[tags]"] == "new,beta" and params["sort"] == "-name"
 
     @respx.mock
-    def test_inference_types_filter(self, client_v2: DeapiClient) -> None:
+    def test_inference_types_filter(self, client: DeapiClient) -> None:
         route = respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=_page(["a"], 1, 1)))
-        client_v2.models.list(inference_types=["txt2img", "img2img"])
+        client.models.list(inference_types=["txt2img", "img2img"])
         assert route.calls.last.request.url.params["filter[inference_types]"] == "txt2img,img2img"
 
     @respx.mock
-    def test_list_all_walks_pages(self, client_v2: DeapiClient) -> None:
+    def test_list_all_walks_pages(self, client: DeapiClient) -> None:
         route = respx.get(MODELS_URL).mock(side_effect=[
             httpx.Response(200, json=_page(["a", "b"], 1, 3)),
             httpx.Response(200, json=_page(["c", "d"], 2, 3)),
             httpx.Response(200, json=_page(["e"], 3, 3)),
         ])
-        models = client_v2.models.list_all(inference_types=["txt2img"])
+        models = client.models.list_all(inference_types=["txt2img"])
         assert [m.slug for m in models] == ["a", "b", "c", "d", "e"]
         assert [c.request.url.params["page"] for c in route.calls] == ["1", "2", "3"]
         assert all(c.request.url.params["limit"] == "50" for c in route.calls)
         assert all(c.request.url.params["filter[inference_types]"] == "txt2img" for c in route.calls)
 
     @respx.mock
-    def test_list_all_keeps_going_past_short_looking_pages(self, client_v2: DeapiClient) -> None:
+    def test_list_all_keeps_going_past_short_looking_pages(self, client: DeapiClient) -> None:
         # Full pages (50) then a partial one: every model of every page must come back.
         pages = [[f"m{i}" for i in range(0, 50)], [f"m{i}" for i in range(50, 100)], [f"m{i}" for i in range(100, 123)]]
         route = respx.get(MODELS_URL).mock(side_effect=[
             httpx.Response(200, json=_page(s, n + 1, 3)) for n, s in enumerate(pages)
         ])
-        models = client_v2.models.list_all()
+        models = client.models.list_all()
         assert [m.slug for m in models] == [f"m{i}" for i in range(123)]
         assert route.call_count == 3
 
     @respx.mock
-    def test_list_all_without_meta_full_page_fetches_next(self, client_v2: DeapiClient) -> None:
+    def test_list_all_without_meta_full_page_fetches_next(self, client: DeapiClient) -> None:
         full = {"data": [_model(f"m{i}") for i in range(50)]}
         route = respx.get(MODELS_URL).mock(side_effect=[
             httpx.Response(200, json=full),
             httpx.Response(200, json={"data": [_model("last")]}),
         ])
-        assert len(client_v2.models.list_all()) == 51
+        assert len(client.models.list_all()) == 51
         assert route.call_count == 2
 
     @respx.mock
-    def test_list_all_without_meta(self, client_v2: DeapiClient) -> None:
+    def test_list_all_without_meta(self, client: DeapiClient) -> None:
         route = respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json={"data": [_model("a")]}))
-        assert [m.slug for m in client_v2.models.list_all()] == ["a"]
+        assert [m.slug for m in client.models.list_all()] == ["a"]
         assert route.call_count == 1
 
     @respx.mock
-    def test_get_by_slug(self, client_v2: DeapiClient) -> None:
+    def test_get_by_slug(self, client: DeapiClient) -> None:
         respx.get(MODELS_URL).mock(side_effect=[
             httpx.Response(200, json=_page(["a"], 1, 2)),
             httpx.Response(200, json=_page(["b"], 2, 2)),
         ])
-        found = client_v2.models.get("b")
+        found = client.models.get("b")
         assert found is not None and found.slug == "b"
 
     @respx.mock
-    def test_get_missing_returns_none(self, client_v2: DeapiClient) -> None:
+    def test_get_missing_returns_none(self, client: DeapiClient) -> None:
         respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=_page(["a"], 1, 1)))
-        assert client_v2.models.get("nope") is None
+        assert client.models.get("nope") is None
 
 
 class TestModelsAsync:
     @respx.mock
-    async def test_limit_and_deprecation(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_limit_and_deprecation(self, async_client: AsyncDeapiClient) -> None:
         route = respx.get(MODELS_URL).mock(return_value=httpx.Response(200, json=_page(["a"], 1, 1)))
-        await async_client_v2.models.list(limit=20, page=3)
+        await async_client.models.list(limit=20, page=3)
         assert route.calls.last.request.url.params["limit"] == "20"
         with pytest.warns(DeprecationWarning):
-            await async_client_v2.models.list(per_page=5)
+            await async_client.models.list(per_page=5)
         assert route.calls.last.request.url.params["limit"] == "5"
 
     @respx.mock
-    async def test_list_all_and_get(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_list_all_and_get(self, async_client: AsyncDeapiClient) -> None:
         respx.get(MODELS_URL).mock(side_effect=[
             httpx.Response(200, json=_page(["a"], 1, 2)),
             httpx.Response(200, json=_page(["b"], 2, 2)),
             httpx.Response(200, json=_page(["a"], 1, 2)),
             httpx.Response(200, json=_page(["b"], 2, 2)),
         ])
-        assert [m.slug for m in await async_client_v2.models.list_all()] == ["a", "b"]
-        assert (await async_client_v2.models.get("zzz")) is None
+        assert [m.slug for m in await async_client.models.list_all()] == ["a", "b"]
+        assert (await async_client.models.get("zzz")) is None
 
 
 class TestModelTypes:

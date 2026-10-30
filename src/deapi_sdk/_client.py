@@ -38,14 +38,10 @@ class BaseClient:
         self._config = config
 
     def _resolve_endpoint(self, operation: str) -> str:
-        """Resolve an operation name to a full URL path."""
-        version = self._config.api_version
-        version_endpoints = ENDPOINTS.get(version)
-        if version_endpoints is None:
-            raise DeapiError(f"Unsupported API version: {version}")
-        path = version_endpoints.get(operation)
+        """Resolve an operation name to a full URL."""
+        path = ENDPOINTS.get(operation)
         if path is None:
-            raise DeapiError(f"Operation '{operation}' is not available in API {version}")
+            raise DeapiError(f"Unknown API operation '{operation}'")
         return f"{self._config.base_url}{self._config.api_prefix}/{path}"
 
     def _default_headers(self) -> dict[str, str]:

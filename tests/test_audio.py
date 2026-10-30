@@ -19,7 +19,7 @@ class TestTTS:
     @respx.mock
     def test_synthesize_json(self, client: DeapiClient) -> None:
         """TTS without ref_audio should send JSON."""
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2audio").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/audio/speech").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.audio.synthesize(
@@ -45,7 +45,7 @@ class TestTTS:
     @respx.mock
     def test_synthesize_voice_clone_multipart(self, client: DeapiClient) -> None:
         """TTS with ref_audio should send multipart."""
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2audio").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/audio/speech").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.audio.synthesize(
@@ -66,7 +66,7 @@ class TestTTS:
 
     @respx.mock
     def test_synthesize_price_with_text(self, client: DeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2audio/price-calculation").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/audio/speech/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.audio.synthesize_price(
@@ -81,7 +81,7 @@ class TestTTS:
 
     @respx.mock
     def test_synthesize_price_with_count(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2audio/price-calculation").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/audio/speech/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.audio.synthesize_price(
@@ -100,7 +100,7 @@ class TestTTS:
     @respx.mock
     def test_synthesize_minimal(self, client: DeapiClient) -> None:
         """TTS with only required fields."""
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2audio").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/audio/speech").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.audio.synthesize(
@@ -116,7 +116,7 @@ class TestTTS:
 class TestMusic:
     @respx.mock
     def test_compose(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2music").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/audio/music").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = client.audio.compose(
@@ -139,7 +139,7 @@ class TestMusic:
 
     @respx.mock
     def test_compose_minimal(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2music").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/audio/music").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.audio.compose(
@@ -153,7 +153,7 @@ class TestMusic:
 
     @respx.mock
     def test_compose_price(self, client: DeapiClient) -> None:
-        route = respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2music/price-calculation").mock(
+        route = respx.post(f"{TEST_BASE_URL}/api/v2/audio/music/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
         price = client.audio.compose_price(
@@ -168,7 +168,7 @@ class TestAsyncAudio:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_synthesize(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2audio").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/audio/speech").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.audio.synthesize(
@@ -180,7 +180,7 @@ class TestAsyncAudio:
     @respx.mock
     @pytest.mark.asyncio
     async def test_async_compose(self, async_client: AsyncDeapiClient) -> None:
-        respx.post(f"{TEST_BASE_URL}/api/v1/client/txt2music").mock(
+        respx.post(f"{TEST_BASE_URL}/api/v2/audio/music").mock(
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         job = await async_client.audio.compose(

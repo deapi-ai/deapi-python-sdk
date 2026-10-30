@@ -36,7 +36,7 @@ JOB_URL = f"{TEST_BASE_URL}/api/v2/txt2img"
 
 
 def _v2(max_retries: int = 0) -> DeapiClient:
-    return DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v2", max_retries=max_retries)
+    return DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=max_retries)
 
 
 class TestStatusCodeMapping:
@@ -331,21 +331,21 @@ class TestRetryPolicy:
 class TestAsyncParity:
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_403_ip_not_allowed(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_async_403_ip_not_allowed(self, async_client: AsyncDeapiClient) -> None:
         respx.get(BALANCE_URL).mock(
             return_value=httpx.Response(403, json={"message": "x", "code": "ip_not_allowed"})
         )
         with pytest.raises(IpNotAllowedError):
-            await async_client_v2.balance()
+            await async_client.balance()
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_402_key_limit(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_async_402_key_limit(self, async_client: AsyncDeapiClient) -> None:
         respx.get(BALANCE_URL).mock(
             return_value=httpx.Response(402, json={"message": "x", "code": "key_limit_exceeded", "limit": 5})
         )
         with pytest.raises(KeyLimitExceededError) as exc_info:
-            await async_client_v2.balance()
+            await async_client.balance()
         assert exc_info.value.limit == 5.0
 
     @respx.mock
@@ -354,7 +354,7 @@ class TestAsyncParity:
         async def fake_sleep(_: float) -> None:
             return None
 
-        client = AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v2", max_retries=3)
+        client = AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=3)
         try:
             with patch("deapi_sdk._client.asyncio.sleep", fake_sleep):
                 route = respx.post(JOB_URL).mock(return_value=httpx.Response(500, json={"message": "x"}))

@@ -3,9 +3,9 @@
 Verifies that:
 * v2 endpoint paths get hit (renames mapped correctly).
 * Unified endpoints work (transcription, prompt enhancer).
-* Legacy methods emit DeprecationWarning and route to unified endpoints.
+* Unified endpoints are the only route (no per-type legacy shims).
 * The polling status URL uses ``/api/v2/jobs/{id}``.
-* The default api_version is now ``v2``.
+* The default api_version is ``v2``.
 """
 
 from __future__ import annotations
@@ -38,164 +38,158 @@ class TestDefaults:
         assert client._config.api_prefix == "/api/v2"
         client.close()
 
-    def test_v1_prefix_unchanged(self) -> None:
-        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1")
-        assert client._config.api_prefix == "/api/v1/client"
-        client.close()
-
-
 # --- Path renames (v2 routes get hit) ---
 
 
 class TestV2Paths:
     @respx.mock
-    def test_images_generate_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_images_generate_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/images/generations").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.images.generate(
+        job = client.images.generate(
             prompt="cat in space", model="sdxl", width=512, height=512, seed=1,
         )
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_images_edit_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_images_edit_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/images/edits").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.images.transform(
+        job = client.images.transform(
             prompt="paint blue", model="sdxl-edit", image=b"fake-image",
             steps=4, seed=1,
         )
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_images_upscale_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_images_upscale_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/images/upscales").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.images.upscale(image=b"fake-image", model="real-esrgan")
+        job = client.images.upscale(image=b"fake-image", model="real-esrgan")
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_images_rmbg_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_images_rmbg_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/images/background-removals").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.images.remove_background(image=b"fake-image", model="rembg")
+        job = client.images.remove_background(image=b"fake-image", model="rembg")
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_video_generate_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_video_generate_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/videos/generations").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.video.generate(
+        job = client.video.generate(
             prompt="ocean", model="wan2.2", width=512, height=512,
             steps=4, seed=1, frames=24, fps=24,
         )
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_video_animate_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_video_animate_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/videos/animations").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.video.animate(
+        job = client.video.animate(
             prompt="zoom in", model="wan-i2v", first_frame_image=b"img",
             seed=1, width=512, height=512, frames=24, fps=24,
         )
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_video_upscale_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_video_upscale_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/videos/upscales").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.video.upscale(video=b"vid", model="real-esrgan")
+        job = client.video.upscale(video=b"vid", model="real-esrgan")
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_video_rmbg_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_video_rmbg_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/videos/background-removals").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.video.remove_background(video=b"vid", model="rembg")
+        job = client.video.remove_background(video=b"vid", model="rembg")
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_video_replace_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_video_replace_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/videos/replacements").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.video.replace(video=b"vid", ref_image=b"ref", model="wan-replace")
+        job = client.video.replace(video=b"vid", ref_image=b"ref", model="wan-replace")
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_video_audio_sync_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_video_audio_sync_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/videos/audio-syncs").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.video.generate_from_audio(
+        job = client.video.generate_from_audio(
             prompt="dance", audio=b"audio", model="wan-a2v",
             width=512, height=512, seed=1, frames=24, fps=24,
         )
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_audio_speech_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_audio_speech_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/audio/speech").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.audio.synthesize(
+        job = client.audio.synthesize(
             text="hello world", model="kokoro", lang="en", format="wav",
             speed=1.0, sample_rate=24000.0, voice="alpha",
         )
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_audio_music_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_audio_music_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/audio/music").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.audio.compose(
+        job = client.audio.compose(
             caption="jazz beat", model="musicgen", duration=30.0,
             inference_steps=50, guidance_scale=3.0, seed=1, format="wav",
         )
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_embeddings_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_embeddings_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/embeddings").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.embeddings.create(input="hello", model="bge-m3")
+        job = client.embeddings.create(input="hello", model="bge-m3")
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_ocr_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_ocr_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/images/ocr").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.ocr.extract(image=b"img", model="paddleocr")
+        job = client.ocr.extract(image=b"img", model="paddleocr")
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_balance_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_balance_hits_v2_path(self, client: DeapiClient) -> None:
         respx.get(f"{V2}/account/balance").mock(
             return_value=httpx.Response(200, json={"data": {"balance": 42.0}})
         )
-        bal = client_v2.balance()
+        bal = client.balance()
         assert bal.balance == 42.0
 
     @respx.mock
-    def test_models_hits_v2_path(self, client_v2: DeapiClient) -> None:
+    def test_models_hits_v2_path(self, client: DeapiClient) -> None:
         respx.get(f"{V2}/models").mock(
             return_value=httpx.Response(200, json={
                 "data": [], "links": {}, "meta": {"current_page": 1, "last_page": 1, "per_page": 15, "total": 0},
             })
         )
-        result = client_v2.models.list()
+        result = client.models.list()
         assert result.meta.total == 0
 
 
@@ -204,7 +198,7 @@ class TestV2Paths:
 
 class TestV2Polling:
     @respx.mock
-    def test_polling_uses_jobs_path(self, client_v2: DeapiClient) -> None:
+    def test_polling_uses_jobs_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/images/generations").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
@@ -213,7 +207,7 @@ class TestV2Polling:
                 "data": {"status": "done", "result_url": "https://cdn/image.png", "progress": 1.0},
             })
         )
-        job = client_v2.images.generate(
+        job = client.images.generate(
             prompt="cat", model="sdxl", width=512, height=512, seed=1,
         )
         result = job.status()
@@ -225,11 +219,11 @@ class TestV2Polling:
 
 class TestV2Transcription:
     @respx.mock
-    def test_create_with_url(self, client_v2: DeapiClient) -> None:
+    def test_create_with_url(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = client_v2.transcription.create(
+        job = client.transcription.create(
             source_url="https://example.com/a.mp4", include_ts=True, model="whisper",
         )
         assert job.request_id == "v2-job-123"
@@ -237,73 +231,36 @@ class TestV2Transcription:
         assert body["source_url"] == "https://example.com/a.mp4"
 
     @respx.mock
-    def test_create_with_file_uses_multipart(self, client_v2: DeapiClient) -> None:
+    def test_create_with_file_uses_multipart(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/audio/transcriptions").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        client_v2.transcription.create(
+        client.transcription.create(
             source_file=b"audio-bytes", include_ts=False, model="whisper",
         )
         ct = route.calls.last.request.headers.get("content-type", "")
         assert "multipart/form-data" in ct
 
     @respx.mock
-    def test_create_price(self, client_v2: DeapiClient) -> None:
+    def test_create_price(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/audio/transcriptions/price").mock(
             return_value=httpx.Response(200, json=PRICE_RESPONSE)
         )
-        price = client_v2.transcription.create_price(
+        price = client.transcription.create_price(
             include_ts=True, model="whisper", duration_seconds=60.0,
         )
         assert price.price == 0.05
-
-    @respx.mock
-    def test_legacy_from_video_url_warns_and_routes(self, client_v2: DeapiClient) -> None:
-        route = respx.post(f"{V2}/audio/transcriptions").mock(
-            return_value=httpx.Response(200, json=JOB_RESPONSE)
-        )
-        with pytest.warns(DeprecationWarning, match="unified transcription"):
-            job = client_v2.transcription.from_video_url(
-                video_url="https://example.com/v.mp4", include_ts=True, model="whisper",
-            )
-        assert job.request_id == "v2-job-123"
-        body = json.loads(route.calls.last.request.content)
-        assert body["source_url"] == "https://example.com/v.mp4"
-
-    @respx.mock
-    def test_legacy_from_audio_file_warns_and_routes(self, client_v2: DeapiClient) -> None:
-        route = respx.post(f"{V2}/audio/transcriptions").mock(
-            return_value=httpx.Response(200, json=JOB_RESPONSE)
-        )
-        with pytest.warns(DeprecationWarning):
-            client_v2.transcription.from_audio_file(
-                audio=b"audio", include_ts=True, model="whisper",
-            )
-        ct = route.calls.last.request.headers.get("content-type", "")
-        assert "multipart/form-data" in ct
-
-    @respx.mock
-    def test_legacy_from_audio_url_price_warns_and_routes(self, client_v2: DeapiClient) -> None:
-        respx.post(f"{V2}/audio/transcriptions/price").mock(
-            return_value=httpx.Response(200, json=PRICE_RESPONSE)
-        )
-        with pytest.warns(DeprecationWarning):
-            price = client_v2.transcription.from_audio_url_price(
-                include_ts=True, model="whisper", audio_url="https://x", duration_seconds=10.0,
-            )
-        assert price.price == 0.05
-
 
 # --- Unified prompt enhancer ---
 
 
 class TestV2Prompts:
     @respx.mock
-    def test_enhance_unified(self, client_v2: DeapiClient) -> None:
+    def test_enhance_unified(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/prompts/enhancements").mock(
             return_value=httpx.Response(200, json=ENHANCE_RESPONSE)
         )
-        result = client_v2.prompts.enhance(
+        result = client.prompts.enhance(
             prompt="a cat", type="images.generations", model_slug="sdxl",
         )
         assert result.prompt == "enhanced"
@@ -317,11 +274,11 @@ class TestV2Prompts:
         assert b"sdxl" in body
 
     @respx.mock
-    def test_enhance_with_image(self, client_v2: DeapiClient) -> None:
+    def test_enhance_with_image(self, client: DeapiClient) -> None:
         route = respx.post(f"{V2}/prompts/enhancements").mock(
             return_value=httpx.Response(200, json=ENHANCE_RESPONSE)
         )
-        client_v2.prompts.enhance(
+        client.prompts.enhance(
             prompt="a cat", type="images.edits", model_slug="sdxl-edit", image=b"img",
         )
         # Multipart should contain the image as a file part
@@ -329,74 +286,36 @@ class TestV2Prompts:
         assert b"image" in body
 
     @respx.mock
-    def test_enhance_price(self, client_v2: DeapiClient) -> None:
+    def test_enhance_price(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/prompts/enhancements/price").mock(
             return_value=httpx.Response(200, json={"data": {"price": 0.001}})
         )
-        price = client_v2.prompts.enhance_price(
+        price = client.prompts.enhance_price(
             prompt="a cat", type="images.generations", model_slug="sdxl",
         )
         assert price.price == 0.001
 
+    @pytest.mark.parametrize(
+        ("type_", "image"),
+        [
+            ("audio.speech", None),
+            ("audio.music", None),
+            ("videos.generations", None),
+            ("videos.animations", b"img"),
+            ("images.edits", b"img"),
+        ],
+    )
     @respx.mock
-    def test_legacy_enhance_image_warns_and_routes(self, client_v2: DeapiClient) -> None:
+    def test_enhance_sends_type_and_optional_image(self, client: DeapiClient, type_: str, image: bytes | None) -> None:
         route = respx.post(f"{V2}/prompts/enhancements").mock(
             return_value=httpx.Response(200, json=ENHANCE_RESPONSE)
         )
-        with pytest.warns(DeprecationWarning, match="unified prompt enhancer"):
-            client_v2.prompts.enhance_image(prompt="cat", model_slug="sdxl")
+        result = client.prompts.enhance(prompt="a cat", type=type_, model_slug="some-model", image=image)
+        assert result.prompt == "enhanced"
         body = route.calls.last.request.content
-        assert b"images.generations" in body
-
-    @respx.mock
-    def test_legacy_enhance_video_with_image_routes_animations(self, client_v2: DeapiClient) -> None:
-        route = respx.post(f"{V2}/prompts/enhancements").mock(
-            return_value=httpx.Response(200, json=ENHANCE_RESPONSE)
-        )
-        with pytest.warns(DeprecationWarning):
-            client_v2.prompts.enhance_video(prompt="zoom", model_slug="wan-i2v", image=b"img")
-        body = route.calls.last.request.content
-        assert b"videos.animations" in body
-
-    @respx.mock
-    def test_legacy_enhance_video_no_image_routes_generations(self, client_v2: DeapiClient) -> None:
-        route = respx.post(f"{V2}/prompts/enhancements").mock(
-            return_value=httpx.Response(200, json=ENHANCE_RESPONSE)
-        )
-        with pytest.warns(DeprecationWarning):
-            client_v2.prompts.enhance_video(prompt="ocean", model_slug="wan-t2v")
-        body = route.calls.last.request.content
-        assert b"videos.generations" in body
-
-    @respx.mock
-    def test_legacy_enhance_speech_warns(self, client_v2: DeapiClient) -> None:
-        route = respx.post(f"{V2}/prompts/enhancements").mock(
-            return_value=httpx.Response(200, json=ENHANCE_RESPONSE)
-        )
-        with pytest.warns(DeprecationWarning):
-            client_v2.prompts.enhance_speech(prompt="hello", model_slug="kokoro")
-        body = route.calls.last.request.content
-        assert b"audio.speech" in body
-
-    @respx.mock
-    def test_legacy_enhance_image2image_warns(self, client_v2: DeapiClient) -> None:
-        route = respx.post(f"{V2}/prompts/enhancements").mock(
-            return_value=httpx.Response(200, json=ENHANCE_RESPONSE)
-        )
-        with pytest.warns(DeprecationWarning):
-            client_v2.prompts.enhance_image2image(
-                prompt="paint", image=b"img", model_slug="sdxl-edit",
-            )
-        body = route.calls.last.request.content
-        assert b"images.edits" in body
-
-    def test_samples_raises_not_implemented(self, client_v2: DeapiClient) -> None:
-        with pytest.raises(NotImplementedError, match="removed in v2"):
-            client_v2.prompts.samples(type="text2image")
-
-    def test_samples_price_raises_not_implemented(self, client_v2: DeapiClient) -> None:
-        with pytest.raises(NotImplementedError, match="removed in v2"):
-            client_v2.prompts.samples_price(type="text2image")
+        assert type_.encode() in body
+        assert b"some-model" in body
+        assert (b'name="image"' in body) is (image is not None)
 
 
 # --- Async parity smoke tests ---
@@ -405,71 +324,53 @@ class TestV2Prompts:
 class TestV2Async:
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_images_generate(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_async_images_generate(self, async_client: AsyncDeapiClient) -> None:
         respx.post(f"{V2}/images/generations").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = await async_client_v2.images.generate(
+        job = await async_client.images.generate(
             prompt="cat", model="sdxl", width=512, height=512, seed=1,
         )
         assert job.request_id == "v2-job-123"
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_balance(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_async_balance(self, async_client: AsyncDeapiClient) -> None:
         respx.get(f"{V2}/account/balance").mock(
             return_value=httpx.Response(200, json={"data": {"balance": 1.0}})
         )
-        bal = await async_client_v2.balance()
+        bal = await async_client.balance()
         assert bal.balance == 1.0
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_unified_transcription(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_async_unified_transcription(self, async_client: AsyncDeapiClient) -> None:
         respx.post(f"{V2}/audio/transcriptions").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)
         )
-        job = await async_client_v2.transcription.create(
+        job = await async_client.transcription.create(
             source_url="https://x", include_ts=True, model="whisper",
         )
         assert job.request_id == "v2-job-123"
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_unified_prompt_enhance(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_async_unified_prompt_enhance(self, async_client: AsyncDeapiClient) -> None:
         respx.post(f"{V2}/prompts/enhancements").mock(
             return_value=httpx.Response(200, json=ENHANCE_RESPONSE)
         )
-        result = await async_client_v2.prompts.enhance(
+        result = await async_client.prompts.enhance(
             prompt="cat", type="images.generations", model_slug="sdxl",
         )
         assert result.prompt == "enhanced"
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_async_legacy_transcription_warns_and_routes(self, async_client_v2: AsyncDeapiClient) -> None:
-        route = respx.post(f"{V2}/audio/transcriptions").mock(
-            return_value=httpx.Response(200, json=JOB_RESPONSE)
-        )
-        with pytest.warns(DeprecationWarning):
-            await async_client_v2.transcription.from_audio_url(
-                audio_url="https://x", include_ts=True, model="whisper",
-            )
-        body = json.loads(route.calls.last.request.content)
-        assert body["source_url"] == "https://x"
-
-    @respx.mock
-    @pytest.mark.asyncio
-    async def test_async_enhance_price(self, async_client_v2: AsyncDeapiClient) -> None:
+    async def test_async_enhance_price(self, async_client: AsyncDeapiClient) -> None:
         respx.post(f"{V2}/prompts/enhancements/price").mock(
             return_value=httpx.Response(200, json={"data": {"price": 0.002}})
         )
-        price = await async_client_v2.prompts.enhance_price(
+        price = await async_client.prompts.enhance_price(
             prompt="cat", type="images.generations", model_slug="sdxl",
         )
         assert price.price == 0.002
-
-    @pytest.mark.asyncio
-    async def test_async_samples_raises_not_implemented(self, async_client_v2: AsyncDeapiClient) -> None:
-        with pytest.raises(NotImplementedError, match="removed in v2"):
-            await async_client_v2.prompts.samples(type="text2image")

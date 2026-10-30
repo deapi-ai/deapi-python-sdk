@@ -49,47 +49,12 @@ from deapi_sdk.types.common import (
     ModelsResponse,
     PriceResult,
 )
-from deapi_sdk.types.v1.video import VideoDescription, VideoEvent, parse_video_description
+from deapi_sdk.types.video import VideoDescription, VideoEvent, parse_video_description
 from deapi_sdk.webhook import InvalidSignatureError, WebhookEvent, WebhookEventData, construct_event, verify_signature
 
 
-def _attach_v1_resources_sync(client: DeapiClient) -> None:
-    from deapi_sdk.resources.v1 import OCR, Audio, Embeddings, Images, Models, Prompts, Transcription, Video
-    client.images = Images(client._http_client)
-    client.models = Models(client._http_client)
-    client.audio = Audio(client._http_client)
-    client.transcription = Transcription(client._http_client)
-    client.video = Video(client._http_client)
-    client.embeddings = Embeddings(client._http_client)
-    client.prompts = Prompts(client._http_client)
-    client.ocr = OCR(client._http_client)
-    client.jobs = Jobs(client._http_client)
-
-
-def _attach_v1_resources_async(client: AsyncDeapiClient) -> None:
-    from deapi_sdk.resources.v1 import (
-        AsyncAudio,
-        AsyncEmbeddings,
-        AsyncImages,
-        AsyncModels,
-        AsyncOCR,
-        AsyncPrompts,
-        AsyncTranscription,
-        AsyncVideo,
-    )
-    client.images = AsyncImages(client._http_client)
-    client.models = AsyncModels(client._http_client)
-    client.audio = AsyncAudio(client._http_client)
-    client.transcription = AsyncTranscription(client._http_client)
-    client.video = AsyncVideo(client._http_client)
-    client.embeddings = AsyncEmbeddings(client._http_client)
-    client.prompts = AsyncPrompts(client._http_client)
-    client.ocr = AsyncOCR(client._http_client)
-    client.jobs = AsyncJobs(client._http_client)
-
-
-def _attach_v2_resources_sync(client: DeapiClient) -> None:
-    from deapi_sdk.resources.v2 import (
+def _attach_resources_sync(client: DeapiClient) -> None:
+    from deapi_sdk.resources import (
         OCR,
         AccountResource,
         Audio,
@@ -114,8 +79,8 @@ def _attach_v2_resources_sync(client: DeapiClient) -> None:
     client.keys = KeysResource(client._http_client)
 
 
-def _attach_v2_resources_async(client: AsyncDeapiClient) -> None:
-    from deapi_sdk.resources.v2 import (
+def _attach_resources_async(client: AsyncDeapiClient) -> None:
+    from deapi_sdk.resources import (
         AsyncAccountResource,
         AsyncAudio,
         AsyncEmbeddings,
@@ -138,18 +103,6 @@ def _attach_v2_resources_async(client: AsyncDeapiClient) -> None:
     client.jobs = AsyncJobs(client._http_client)
     client.account = AsyncAccountResource(client._http_client)
     client.keys = AsyncKeysResource(client._http_client)
-
-
-_RESOURCE_LOADERS: dict[str, dict[str, Any]] = {
-    "v1": {
-        "sync": _attach_v1_resources_sync,
-        "async": _attach_v1_resources_async,
-    },
-    "v2": {
-        "sync": _attach_v2_resources_sync,
-        "async": _attach_v2_resources_async,
-    },
-}
 
 
 class DeapiClient:
@@ -182,8 +135,8 @@ class DeapiClient:
     prompts: Any
     ocr: Any
     jobs: Any
-    account: Any  # API v2 only
-    keys: Any  # API v2 only
+    account: Any
+    keys: Any
 
     def __init__(
         self,
@@ -214,11 +167,7 @@ class DeapiClient:
         self._attach_resources()
 
     def _attach_resources(self) -> None:
-        version = self._config.api_version
-        loader = _RESOURCE_LOADERS.get(version)
-        if loader is None:
-            raise DeapiError(f"Unsupported API version: {version}")
-        loader["sync"](self)
+        _attach_resources_sync(self)
 
     def balance(self) -> Balance:
         """Get current account balance."""
@@ -285,8 +234,8 @@ class AsyncDeapiClient:
     prompts: Any
     ocr: Any
     jobs: Any
-    account: Any  # API v2 only
-    keys: Any  # API v2 only
+    account: Any
+    keys: Any
 
     def __init__(
         self,
@@ -317,11 +266,7 @@ class AsyncDeapiClient:
         self._attach_resources()
 
     def _attach_resources(self) -> None:
-        version = self._config.api_version
-        loader = _RESOURCE_LOADERS.get(version)
-        if loader is None:
-            raise DeapiError(f"Unsupported API version: {version}")
-        loader["async"](self)
+        _attach_resources_async(self)
 
     async def balance(self) -> Balance:
         """Get current account balance."""
