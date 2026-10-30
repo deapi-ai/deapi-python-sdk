@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import math
 import time
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import IO, Any, TypeAlias
 
 import httpx
 
@@ -29,6 +30,19 @@ from deapi_sdk._exceptions import (
     ServerError,
     ValidationError,
 )
+
+# Multipart file parts accepted by the low-level ``request()`` / ``post()``, mirroring what httpx
+# accepts (a mapping or a sequence of (field, part) pairs; content as bytes or a binary file object,
+# optionally with a filename, content type and headers). Resource methods build these from
+# ``FileInput`` via ``normalize_file``; a plain ``str`` is deliberately not allowed as content.
+FileContent: TypeAlias = IO[bytes] | bytes
+FilePart: TypeAlias = (
+    FileContent
+    | tuple[str | None, FileContent]
+    | tuple[str | None, FileContent, str | None]
+    | tuple[str | None, FileContent, str | None, Mapping[str, str]]
+)
+RequestFiles: TypeAlias = Mapping[str, FilePart] | Sequence[tuple[str, FilePart]]
 
 
 class BaseClient:
@@ -246,7 +260,7 @@ class SyncHTTPClient(BaseClient):
         *,
         json: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
-        files: list[tuple[str, tuple[str, bytes, str]]] | None = None,
+        files: RequestFiles | None = None,
         params: dict[str, Any] | None = None,
     ) -> Any:
         last_exc: Exception | None = None
@@ -290,7 +304,7 @@ class SyncHTTPClient(BaseClient):
         *,
         json: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
-        files: list[tuple[str, tuple[str, bytes, str]]] | None = None,
+        files: RequestFiles | None = None,
     ) -> Any:
         return self.request("POST", url, json=json, data=data, files=files)
 
@@ -342,7 +356,7 @@ class AsyncHTTPClient(BaseClient):
         *,
         json: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
-        files: list[tuple[str, tuple[str, bytes, str]]] | None = None,
+        files: RequestFiles | None = None,
         params: dict[str, Any] | None = None,
     ) -> Any:
         last_exc: Exception | None = None
@@ -386,7 +400,7 @@ class AsyncHTTPClient(BaseClient):
         *,
         json: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
-        files: list[tuple[str, tuple[str, bytes, str]]] | None = None,
+        files: RequestFiles | None = None,
     ) -> Any:
         return await self.request("POST", url, json=json, data=data, files=files)
 
