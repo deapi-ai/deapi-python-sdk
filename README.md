@@ -201,8 +201,7 @@ description = client.video.get_description(job.wait())   # VideoDescription: eve
 ```
 
 Reference limits (`max_ref_images`, `max_ref_videos`, `max_ref_audios`) come from the model card;
-the API never accepts more than 9 images, 1 video or 3 audios. `video.replace()` and
-`video.remove_background()` remain for compatibility, but no model currently serves them.
+the API never accepts more than 9 images, 1 video or 3 audios.
 
 ### Audio
 
@@ -534,6 +533,15 @@ async def handle_webhook(request: Request):
 - `job.failed` carries `error_code`, `error_reason` (an open list: treat unknown values as
   `PROCESSING_FAILED`), `retryable` and `refunded`. Failed jobs are announced only by webhook (and the
   job status endpoint), never over the real-time WebSocket.
+
+## Upgrading to 0.5.0
+
+0.5.0 removes the video operations that deAPI API v2 no longer serves:
+
+| Removed | Use instead |
+|---------|-------------|
+| `video.replace()` / `replace_price()`, type `VideoReplaceParams` | `video.animate()` with the character as `ref_images` and the source motion as `ref_videos` |
+| `video.remove_background()` / `remove_background_price()`, `InferenceType.VIDEO_REMOVE_BG` | no replacement (`images.remove_background()` is unchanged) |
 
 ## Upgrading to 0.4.0
 

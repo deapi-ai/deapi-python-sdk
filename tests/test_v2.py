@@ -110,22 +110,6 @@ class TestV2Paths:
         assert job.request_id == "v2-job-123"
 
     @respx.mock
-    def test_video_rmbg_hits_v2_path(self, client: DeapiClient) -> None:
-        respx.post(f"{V2}/videos/background-removals").mock(
-            return_value=httpx.Response(200, json=JOB_RESPONSE)
-        )
-        job = client.video.remove_background(video=b"vid", model="rembg")
-        assert job.request_id == "v2-job-123"
-
-    @respx.mock
-    def test_video_replace_hits_v2_path(self, client: DeapiClient) -> None:
-        respx.post(f"{V2}/videos/replacements").mock(
-            return_value=httpx.Response(200, json=JOB_RESPONSE)
-        )
-        job = client.video.replace(video=b"vid", ref_image=b"ref", model="wan-replace")
-        assert job.request_id == "v2-job-123"
-
-    @respx.mock
     def test_video_audio_sync_hits_v2_path(self, client: DeapiClient) -> None:
         respx.post(f"{V2}/videos/audio-syncs").mock(
             return_value=httpx.Response(200, json=JOB_RESPONSE)

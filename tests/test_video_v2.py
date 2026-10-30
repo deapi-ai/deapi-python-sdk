@@ -340,24 +340,6 @@ class TestDescriptionResult:
             client.video.get_description("not-a-url")
 
 
-class TestReplaceAndRemoveBackground:
-    @respx.mock
-    def test_replace_webhook_secret(self, client: DeapiClient) -> None:
-        route = respx.post(f"{V2}/videos/replacements").mock(return_value=httpx.Response(200, json=JOB))
-        client.video.replace(
-            video=b"v", ref_image=b"i", model="m", webhook_url="https://x.example/h", webhook_secret=SECRET
-        )
-        assert dict(multipart_fields(route.calls.last.request))["webhook_secret"] == SECRET.encode()
-
-    @respx.mock
-    def test_remove_background_webhook_secret(self, client: DeapiClient) -> None:
-        route = respx.post(f"{V2}/videos/background-removals").mock(return_value=httpx.Response(200, json=JOB))
-        client.video.remove_background(
-            video=b"v", model="m", webhook_url="https://x.example/h", webhook_secret=SECRET
-        )
-        assert dict(multipart_fields(route.calls.last.request))["webhook_secret"] == SECRET.encode()
-
-
 class TestAsyncParity:
     @respx.mock
     async def test_generate_and_animate(self, async_client: AsyncDeapiClient) -> None:

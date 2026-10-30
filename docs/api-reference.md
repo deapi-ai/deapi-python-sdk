@@ -1,7 +1,7 @@
 # DeAPI Python SDK — API Reference
 
 Reference for the classes, methods and types in the `deapi_sdk` package. It describes deAPI API **v2**, the only version supported since 0.4.0 (see
-[Upgrading to 0.4.0](../README.md#upgrading-to-040) for the breaking changes). The HTTP API itself is documented at <https://docs.deapi.ai>.
+[Upgrading to 0.5.0](../README.md#upgrading-to-050) and [Upgrading to 0.4.0](../README.md#upgrading-to-040) for the breaking changes). The HTTP API itself is documented at <https://docs.deapi.ai>.
 
 Install: `pip install git+https://github.com/deapi-ai/deapi-python-sdk.git` (not on PyPI yet;
 `pip install deapi` is an unrelated package).
@@ -321,21 +321,16 @@ description = client.video.get_description(result: JobResult | str) -> VideoDesc
 `VideoDescription` has `events`, `scenes` and `meta`. `get_description` uses the inline result when
 present, else downloads `result_url` without the API key.
 
-### `upscale()` / `remove_background()`
+### `upscale()`
 
 ```python
 client.video.upscale(*, video: FileInput, model: str, webhook_url=None, webhook_secret=None) -> Job
-client.video.remove_background(*, video: FileInput, model: str, webhook_url=None, webhook_secret=None) -> Job
 ```
 
-Price variants take `model` plus `video` **or** `width` + `height` + `duration` (seconds). `upscale()` takes `scale` (2 or 4) on models whose card has a `scale` range, e.g. FlashVSR_Tiny.
+`upscale_price()` takes `model` plus `video` **or** `width` + `height` + `duration` (seconds). `upscale()` takes `scale` (2 or 4) on models whose card has a `scale` range, e.g. FlashVSR_Tiny.
 
-### `replace()`
-
-Kept for compatibility (`video`, `ref_image`, `model`, optional `prompt`, `width`, `height`,
-`steps`, `seed`, webhook params; `replace_price()` takes `video` or `duration`). **No model
-currently serves this route.** Use `animate()` with the character as `ref_images` and the source
-motion as `ref_videos` instead.
+Video character replacement and video background removal were removed in 0.5.0; use `animate()`
+with the character as `ref_images` and the source motion as `ref_videos` to replace a character.
 
 ---
 
@@ -452,10 +447,10 @@ result = client.prompts.enhance(
 ) -> EnhancePromptResult
 ```
 
-`type` is one of `images.generations`, `images.edits`, `images.upscales`,
-`images.background-removals`, `images.ocr`, `videos.generations`, `videos.animations`,
-`videos.upscales`, `videos.background-removals`, `audio.speech`, `audio.music`,
-`audio.transcriptions`, `embeddings`. `enhance_price()` takes the same parameters.
+`type` is one of `images.generations`, `images.edits`, `videos.generations`, `videos.animations`,
+`audio.speech`, `audio.music` (`images.edits` and `videos.animations` also need `image`). Other
+inference types have no prompt booster and are rejected with 422. `enhance_price()` takes the same
+parameters.
 
 ---
 

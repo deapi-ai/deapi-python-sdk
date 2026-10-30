@@ -16,9 +16,6 @@ from deapi_sdk.types.video import VideoDescription, parse_video_description
 
 class Video:
     """Sync video resource — generation, animation, audio-to-video, description, upscale.
-
-    ``replace`` and ``remove_background`` are kept for compatibility: the routes still exist, but no model
-    currently serves them (use ``animate`` with reference images/videos instead).
     """
 
     def __init__(self, client: SyncHTTPClient) -> None:
@@ -319,73 +316,6 @@ class Video:
         resp = self._client.post(url, data=data, files=files)
         return PriceResult.model_validate(resp.get("data", resp))
 
-    def replace(
-        self,
-        *,
-        video: FileInput,
-        ref_image: FileInput,
-        model: str,
-        prompt: str | None = None,
-        width: int | None = None,
-        height: int | None = None,
-        steps: int | None = None,
-        seed: int | None = None,
-        webhook_url: str | None = None,
-        webhook_secret: str | None = None,
-    ) -> Job:
-        """Submit a video replace job.
-
-        Note: no model currently serves this route, so the API will reject it. To swap a character use
-        :meth:`animate` with the character as ``ref_images`` and the source motion as ``ref_videos``.
-        """
-        url = self._client._resolve_endpoint("vid_replace")
-        data, files = _build_vid_replace_multipart(
-            video=video, ref_image=ref_image, model=model, prompt=prompt,
-            width=width, height=height, steps=steps, seed=seed,
-            webhook=webhook_fields(webhook_url, webhook_secret),
-        )
-        resp = self._client.post(url, data=data, files=files)
-        request_id = resp["data"]["request_id"]
-        status_url = self._client._resolve_endpoint("request_status")
-        return Job(request_id, self._client, status_url)
-
-    def replace_price(
-        self,
-        *,
-        model: str,
-        video: FileInput | None = None,
-        duration: float | None = None,
-        width: int | None = None,
-        height: int | None = None,
-    ) -> PriceResult:
-        """Calculate price for video replace.
-
-        Provide either ``video`` (file) or ``duration`` (seconds).
-        If ``video`` is given without explicit dimensions, the server reads them from the file.
-        No model currently serves this route (see :meth:`replace`).
-        """
-        if video is None and duration is None:
-            raise ValueError("Either 'video' (file) or 'duration' (seconds) must be provided.")
-        url = self._client._resolve_endpoint("vid_replace_price")
-        if video is not None:
-            data: dict[str, Any] = {"model": model}
-            if width is not None:
-                data["width"] = width
-            if height is not None:
-                data["height"] = height
-            files = [("video", normalize_file(video, "video"))]
-            resp = self._client.post(url, data=data, files=files)
-        else:
-            data_mp: dict[str, Any] = {"model": model}
-            if duration is not None:
-                data_mp["duration"] = str(duration)
-            if width is not None:
-                data_mp["width"] = str(width)
-            if height is not None:
-                data_mp["height"] = str(height)
-            resp = self._client.post(url, data=data_mp)
-        return PriceResult.model_validate(resp.get("data", resp))
-
     def upscale(
         self,
         *,
@@ -441,46 +371,6 @@ class Video:
             resp = self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
-    def remove_background(
-        self,
-        *,
-        video: FileInput,
-        model: str,
-        webhook_url: str | None = None,
-        webhook_secret: str | None = None,
-    ) -> Job:
-        """Submit a video background removal job.
-
-        Note: no model currently serves this route, so the API will reject it.
-        """
-        url = self._client._resolve_endpoint("vid_rmbg")
-        data: dict[str, Any] = {"model": model}
-        data.update(webhook_fields(webhook_url, webhook_secret))
-        files = [("video", normalize_file(video, "video"))]
-        resp = self._client.post(url, data=data, files=files)
-        request_id = resp["data"]["request_id"]
-        status_url = self._client._resolve_endpoint("request_status")
-        return Job(request_id, self._client, status_url)
-
-    def remove_background_price(
-        self,
-        *,
-        model: str,
-        video: FileInput | None = None,
-        width: int | None = None,
-        height: int | None = None,
-    ) -> PriceResult:
-        """Calculate price for video background removal (no model currently serves this route)."""
-        url = self._client._resolve_endpoint("vid_rmbg_price")
-        if video is not None:
-            data: dict[str, Any] = {"model": model}
-            files = [("video", normalize_file(video, "video"))]
-            resp = self._client.post(url, data=data, files=files)
-        else:
-            payload = drop_none({"model": model, "width": width, "height": height})
-            resp = self._client.post(url, json=payload)
-        return PriceResult.model_validate(resp.get("data", resp))
-
     def get_description(self, result: JobResult | str) -> VideoDescription:
         """Return the typed result of a finished :meth:`describe` job.
 
@@ -496,9 +386,6 @@ class Video:
 
 class AsyncVideo:
     """Async video resource — generation, animation, audio-to-video, description, upscale.
-
-    ``replace`` and ``remove_background`` are kept for compatibility: the routes still exist, but no model
-    currently serves them (use ``animate`` with reference images/videos instead).
     """
 
     def __init__(self, client: AsyncHTTPClient) -> None:
@@ -799,73 +686,6 @@ class AsyncVideo:
         resp = await self._client.post(url, data=data, files=files)
         return PriceResult.model_validate(resp.get("data", resp))
 
-    async def replace(
-        self,
-        *,
-        video: FileInput,
-        ref_image: FileInput,
-        model: str,
-        prompt: str | None = None,
-        width: int | None = None,
-        height: int | None = None,
-        steps: int | None = None,
-        seed: int | None = None,
-        webhook_url: str | None = None,
-        webhook_secret: str | None = None,
-    ) -> AsyncJob:
-        """Submit a video replace job.
-
-        Note: no model currently serves this route, so the API will reject it. To swap a character use
-        :meth:`animate` with the character as ``ref_images`` and the source motion as ``ref_videos``.
-        """
-        url = self._client._resolve_endpoint("vid_replace")
-        data, files = _build_vid_replace_multipart(
-            video=video, ref_image=ref_image, model=model, prompt=prompt,
-            width=width, height=height, steps=steps, seed=seed,
-            webhook=webhook_fields(webhook_url, webhook_secret),
-        )
-        resp = await self._client.post(url, data=data, files=files)
-        request_id = resp["data"]["request_id"]
-        status_url = self._client._resolve_endpoint("request_status")
-        return AsyncJob(request_id, self._client, status_url)
-
-    async def replace_price(
-        self,
-        *,
-        model: str,
-        video: FileInput | None = None,
-        duration: float | None = None,
-        width: int | None = None,
-        height: int | None = None,
-    ) -> PriceResult:
-        """Calculate price for video replace.
-
-        Provide either ``video`` (file) or ``duration`` (seconds).
-        If ``video`` is given without explicit dimensions, the server reads them from the file.
-        No model currently serves this route (see :meth:`replace`).
-        """
-        if video is None and duration is None:
-            raise ValueError("Either 'video' (file) or 'duration' (seconds) must be provided.")
-        url = self._client._resolve_endpoint("vid_replace_price")
-        if video is not None:
-            data: dict[str, Any] = {"model": model}
-            if width is not None:
-                data["width"] = width
-            if height is not None:
-                data["height"] = height
-            files = [("video", normalize_file(video, "video"))]
-            resp = await self._client.post(url, data=data, files=files)
-        else:
-            data_mp: dict[str, Any] = {"model": model}
-            if duration is not None:
-                data_mp["duration"] = str(duration)
-            if width is not None:
-                data_mp["width"] = str(width)
-            if height is not None:
-                data_mp["height"] = str(height)
-            resp = await self._client.post(url, data=data_mp)
-        return PriceResult.model_validate(resp.get("data", resp))
-
     async def upscale(
         self,
         *,
@@ -918,46 +738,6 @@ class AsyncVideo:
             payload = drop_none({
                 "model": model, "width": width, "height": height, "scale": scale, "duration": duration,
             })
-            resp = await self._client.post(url, json=payload)
-        return PriceResult.model_validate(resp.get("data", resp))
-
-    async def remove_background(
-        self,
-        *,
-        video: FileInput,
-        model: str,
-        webhook_url: str | None = None,
-        webhook_secret: str | None = None,
-    ) -> AsyncJob:
-        """Submit a video background removal job.
-
-        Note: no model currently serves this route, so the API will reject it.
-        """
-        url = self._client._resolve_endpoint("vid_rmbg")
-        data: dict[str, Any] = {"model": model}
-        data.update(webhook_fields(webhook_url, webhook_secret))
-        files = [("video", normalize_file(video, "video"))]
-        resp = await self._client.post(url, data=data, files=files)
-        request_id = resp["data"]["request_id"]
-        status_url = self._client._resolve_endpoint("request_status")
-        return AsyncJob(request_id, self._client, status_url)
-
-    async def remove_background_price(
-        self,
-        *,
-        model: str,
-        video: FileInput | None = None,
-        width: int | None = None,
-        height: int | None = None,
-    ) -> PriceResult:
-        """Calculate price for video background removal (no model currently serves this route)."""
-        url = self._client._resolve_endpoint("vid_rmbg_price")
-        if video is not None:
-            data: dict[str, Any] = {"model": model}
-            files = [("video", normalize_file(video, "video"))]
-            resp = await self._client.post(url, data=data, files=files)
-        else:
-            payload = drop_none({"model": model, "width": width, "height": height})
             resp = await self._client.post(url, json=payload)
         return PriceResult.model_validate(resp.get("data", resp))
 
@@ -1121,32 +901,6 @@ def _build_aud2video_multipart(
         file_tuples.append(("first_frame_image", normalize_file(first_frame_image, "first_frame_image")))
     if last_frame_image is not None:
         file_tuples.append(("last_frame_image", normalize_file(last_frame_image, "last_frame_image")))
-
-    return data, file_tuples
-
-
-def _build_vid_replace_multipart(
-    *,
-    video: FileInput,
-    ref_image: FileInput,
-    model: str,
-    prompt: str | None = None,
-    width: int | None = None,
-    height: int | None = None,
-    steps: int | None = None,
-    seed: int | None = None,
-    webhook: dict[str, str] | None = None,
-) -> tuple[dict[str, Any], list[tuple[str, tuple[str, bytes, str]]]]:
-    """Build multipart form data and files list for video replace."""
-    data = drop_none({
-        "model": model, "prompt": prompt, "width": width, "height": height, "steps": steps, "seed": seed,
-    })
-    data.update(webhook or {})
-
-    file_tuples: list[tuple[str, tuple[str, bytes, str]]] = [
-        ("video", normalize_file(video, "video")),
-        ("ref_image", normalize_file(ref_image, "ref_image")),
-    ]
 
     return data, file_tuples
 
