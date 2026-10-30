@@ -6,9 +6,9 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
-from deapi._types import InferenceType
-from deapi.types.common import ModelInfo, ModelsResponse
+from deapi_sdk import AsyncDeapiClient, DeapiClient
+from deapi_sdk._types import InferenceType
+from deapi_sdk.types.common import ModelInfo, ModelsResponse
 
 BASE = "https://test.deapi.ai"
 MODELS_URL = f"{BASE}/api/v2/models"
@@ -86,8 +86,29 @@ class TestModelsSync:
         models = client_v2.models.list_all(inference_types=["txt2img"])
         assert [m.slug for m in models] == ["a", "b", "c", "d", "e"]
         assert [c.request.url.params["page"] for c in route.calls] == ["1", "2", "3"]
-        assert all(c.request.url.params["limit"] == "100" for c in route.calls)
+        assert all(c.request.url.params["limit"] == "50" for c in route.calls)
         assert all(c.request.url.params["filter[inference_types]"] == "txt2img" for c in route.calls)
+
+    @respx.mock
+    def test_list_all_keeps_going_past_short_looking_pages(self, client_v2: DeapiClient) -> None:
+        # Full pages (50) then a partial one: every model of every page must come back.
+        pages = [[f"m{i}" for i in range(0, 50)], [f"m{i}" for i in range(50, 100)], [f"m{i}" for i in range(100, 123)]]
+        route = respx.get(MODELS_URL).mock(side_effect=[
+            httpx.Response(200, json=_page(s, n + 1, 3)) for n, s in enumerate(pages)
+        ])
+        models = client_v2.models.list_all()
+        assert [m.slug for m in models] == [f"m{i}" for i in range(123)]
+        assert route.call_count == 3
+
+    @respx.mock
+    def test_list_all_without_meta_full_page_fetches_next(self, client_v2: DeapiClient) -> None:
+        full = {"data": [_model(f"m{i}") for i in range(50)]}
+        route = respx.get(MODELS_URL).mock(side_effect=[
+            httpx.Response(200, json=full),
+            httpx.Response(200, json={"data": [_model("last")]}),
+        ])
+        assert len(client_v2.models.list_all()) == 51
+        assert route.call_count == 2
 
     @respx.mock
     def test_list_all_without_meta(self, client_v2: DeapiClient) -> None:

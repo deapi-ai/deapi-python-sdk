@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
 
 import pytest
 
-from deapi import AsyncDeapiClient, DeapiClient
+from deapi_sdk import AsyncDeapiClient, DeapiClient
 
 TEST_BASE_URL = "https://test.deapi.ai"
 TEST_API_KEY = "test-key-123"
@@ -20,7 +20,9 @@ def client() -> Generator[DeapiClient, None, None]:
 
 @pytest.fixture
 async def async_client() -> AsyncGenerator[AsyncDeapiClient, None]:
-    async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False) as c:
+    async with AsyncDeapiClient(
+        api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1", fill_model_defaults=False
+    ) as c:
         yield c
 
 
@@ -33,5 +35,7 @@ def client_v2() -> Generator[DeapiClient, None, None]:
 
 @pytest.fixture
 async def async_client_v2() -> AsyncGenerator[AsyncDeapiClient, None]:
-    async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v2", fill_model_defaults=False) as c:
+    async with AsyncDeapiClient(
+        api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v2", fill_model_defaults=False
+    ) as c:
         yield c

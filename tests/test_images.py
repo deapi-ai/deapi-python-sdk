@@ -8,7 +8,7 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
+from deapi_sdk import AsyncDeapiClient, DeapiClient
 
 TEST_BASE_URL = "https://test.deapi.ai"
 TEST_API_KEY = "test-key-123"
@@ -50,7 +50,6 @@ class TestImageGeneration:
             webhook_url="https://example.com/hook",
         )
         request = route.calls.last.request
-        import json
         body = json.loads(request.content)
         assert body["prompt"] == "test prompt"
         assert body["negative_prompt"] == "blurry"
@@ -69,7 +68,6 @@ class TestImageGeneration:
             return_value=httpx.Response(200, json=SUBMIT_RESPONSE)
         )
         client.images.generate(prompt="test", model="sdxl", width=512, height=512, seed=1)
-        import json
         body = json.loads(route.calls.last.request.content)
         assert "negative_prompt" not in body
         assert "loras" not in body
@@ -96,7 +94,7 @@ class TestImageTransform:
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"fake-png-data")
-            tmp_path = f.name
+            tmp_path = Path(f.name)
 
         job = client.images.transform(
             prompt="make it a painting",
@@ -129,10 +127,10 @@ class TestImageTransform:
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f1:
             f1.write(b"image1")
-            path1 = f1.name
+            path1 = Path(f1.name)
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f2:
             f2.write(b"image2")
-            path2 = f2.name
+            path2 = Path(f2.name)
 
         job = client.images.transform(
             prompt="blend",
@@ -197,7 +195,7 @@ class TestImageUpscale:
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"fake-png-data")
-            tmp_path = f.name
+            tmp_path = Path(f.name)
         job = client.images.upscale(image=tmp_path, model="realesrgan-x4")
         assert job.request_id == "test-uuid-123"
         Path(tmp_path).unlink()

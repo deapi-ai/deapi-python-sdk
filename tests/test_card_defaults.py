@@ -10,8 +10,8 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
-from deapi._cards import fill_from_card
+from deapi_sdk import AsyncDeapiClient, DeapiClient
+from deapi_sdk._cards import aget_card, fill_from_card, get_card
 
 BASE = "https://test.deapi.ai"
 V2 = f"{BASE}/api/v2"
@@ -64,7 +64,9 @@ def _client(**kw: Any) -> DeapiClient:
 
 
 def test_fill_from_card_helper() -> None:
-    out = fill_from_card({"width": None, "height": 5}, {"width": 1, "height": 2, "steps": None}, ["width", "height", "steps"])
+    out = fill_from_card(
+        {"width": None, "height": 5}, {"width": 1, "height": 2, "steps": None}, ["width", "height", "steps"]
+    )
     assert out == {"width": 1, "height": 5}
 
 
@@ -224,34 +226,20 @@ class TestFallbacksAndOptOut:
             c.images.generate(prompt="cat", model="Nope")
         assert _json(gen) == {"prompt": "cat", "model": "Nope", "seed": -1}
 
-    @pytest.mark.parametrize("status", [401, 403, 404])
+    @pytest.mark.parametrize("status", [401, 403, 404, 422, 429, 500, 503])
     @respx.mock
-    def test_permanent_failure_is_remembered_and_warns(self, status: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_failure_retried_after_cooldown(
+        self, status: int, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
         now = [1000.0]
-        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
+        monkeypatch.setattr("deapi_sdk._cards.time.monotonic", lambda: now[0])
         models = respx.get(f"{V2}/models").mock(return_value=httpx.Response(status, json={"message": "x"}))
         gen = _post("images/generations")
         with _client(max_retries=0) as c:
-            with pytest.warns(RuntimeWarning, match="unset parameters"):
+            with caplog.at_level("WARNING", logger="deapi"), warnings.catch_warnings():
+                warnings.simplefilter("error")  # logged, never warned
                 c.images.generate(prompt="cat", model="Flux1schnell")
-            with warnings.catch_warnings():
-                warnings.simplefilter("error")  # warned once per failure
-                c.images.generate(prompt="dog", model="Flux1schnell")
-                now[0] += 3600  # no cooldown retry for a permanent failure
-                c.images.generate(prompt="dog", model="Flux1schnell")
-        assert _json(gen) == {"prompt": "dog", "model": "Flux1schnell", "seed": -1}
-        assert models.call_count == 1
-
-    @pytest.mark.parametrize("status", [429, 500, 503])
-    @respx.mock
-    def test_transient_failure_retried_after_cooldown(self, status: int, monkeypatch: pytest.MonkeyPatch) -> None:
-        now = [1000.0]
-        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
-        models = respx.get(f"{V2}/models").mock(return_value=httpx.Response(status, json={"message": "x"}))
-        gen = _post("images/generations")
-        with _client(max_retries=0) as c:
-            with pytest.warns(RuntimeWarning, match="will retry"):
-                c.images.generate(prompt="cat", model="Flux1schnell")
+            assert "will retry" in caplog.text
             assert _json(gen) == {"prompt": "cat", "model": "Flux1schnell", "seed": -1}
             c.images.generate(prompt="cat", model="Flux1schnell")  # inside the cooldown: no refetch
             assert models.call_count == 1
@@ -261,14 +249,14 @@ class TestFallbacksAndOptOut:
         assert _json(gen)["width"] == 768 and _json(gen)["steps"] == 4
 
     @respx.mock
-    def test_network_error_is_transient(self) -> None:
+    def test_network_error_is_transient(self, caplog: pytest.LogCaptureFixture) -> None:
         respx.get(f"{V2}/models").mock(side_effect=httpx.ConnectError("down"))
         _post("images/generations")
         with _client(max_retries=0) as c:
-            with pytest.warns(RuntimeWarning, match="will retry"):
+            with caplog.at_level("WARNING", logger="deapi"):
                 c.images.generate(prompt="cat", model="Flux1schnell")
             cache = c._http_client._card_cache
-            assert cache.retry_at > 0 and not cache.failed
+            assert cache.retry_at > 0 and cache.cards is None and "will retry" in caplog.text
 
     @respx.mock
     def test_threads_share_one_catalogue_fetch(self) -> None:
@@ -298,11 +286,12 @@ class TestFallbacksAndOptOut:
         assert models.call_count == 1
 
     @respx.mock
-    def test_unexpected_shape_fills_nothing(self) -> None:
+    def test_unexpected_shape_fills_nothing(self, caplog: pytest.LogCaptureFixture) -> None:
         respx.get(f"{V2}/models").mock(return_value=httpx.Response(200, json={"oops": 1}))
         gen = _post("images/generations")
-        with _client() as c, pytest.warns(RuntimeWarning, match="model catalogue"):
+        with _client() as c, caplog.at_level("WARNING", logger="deapi"):
             c.images.generate(prompt="cat", model="Flux1schnell")
+        assert "model catalogue" in caplog.text
         assert _json(gen) == {"prompt": "cat", "model": "Flux1schnell", "seed": -1}
 
     @respx.mock
@@ -352,12 +341,13 @@ class TestAsyncParity:
         assert models.call_count == 2
 
     @respx.mock
-    async def test_async_failure_and_opt_out(self) -> None:
+    async def test_async_failure_and_opt_out(self, caplog: pytest.LogCaptureFixture) -> None:
         respx.get(f"{V2}/models").mock(return_value=httpx.Response(403, json={"message": "no"}))
         gen = _post("images/generations")
         async with AsyncDeapiClient(api_key=KEY, base_url=BASE, api_version="v2", max_retries=0) as c:
-            with pytest.warns(RuntimeWarning, match="unset parameters"):
+            with caplog.at_level("WARNING", logger="deapi"):
                 await c.images.generate(prompt="cat", model="Flux1schnell")
+        assert "unset parameters" in caplog.text
         assert _json(gen) == {"prompt": "cat", "model": "Flux1schnell", "seed": -1}
 
     @respx.mock
@@ -387,15 +377,108 @@ class TestAsyncLoops:
         import asyncio
 
         now = [0.0]
-        monkeypatch.setattr("deapi._cards.time.monotonic", lambda: now[0])
+        monkeypatch.setattr("deapi_sdk._cards.time.monotonic", lambda: now[0])
         respx.get(f"{V2}/models").mock(return_value=httpx.Response(500, json={"message": "x"}))
         _post("images/generations/price", PRICE)
         c = AsyncDeapiClient(api_key=KEY, base_url=BASE, api_version="v2", max_retries=0)
 
         async def once() -> None:
-            with pytest.warns(RuntimeWarning):
-                await c.images.generate_price(prompt="x", model="Flux1schnell")
+            await c.images.generate_price(prompt="x", model="Flux1schnell")
 
         asyncio.run(once())
         now[0] += 61  # cooldown over: the second loop fetches again with its own lock
         asyncio.run(once())
+
+
+def _slug_page(slugs: list[str], page: int, last: int) -> dict[str, Any]:
+    return {"data": [{"slug": s, "info": {"defaults": {"steps": 4}}} for s in slugs],
+            "meta": {"current_page": page, "last_page": last}}
+
+
+class TestCatalogue:
+    @respx.mock
+    def test_all_pages_loaded_with_api_page_size(self) -> None:
+        pages = [[f"a{i}" for i in range(50)], [f"b{i}" for i in range(50)], ["c0", "c1"]]
+        route = respx.get(f"{V2}/models").mock(side_effect=[
+            httpx.Response(200, json=_slug_page(p, n + 1, 3)) for n, p in enumerate(pages)
+        ])
+        with _client() as c:
+            for slug in ("a0", "a49", "b0", "b49", "c1"):
+                assert get_card(c._http_client, slug) == {"defaults": {"steps": 4}}
+        assert [r.request.url.params["limit"] for r in route.calls] == ["50", "50", "50"]
+        assert [r.request.url.params["page"] for r in route.calls] == ["1", "2", "3"]
+        assert route.call_count == 3
+
+    @respx.mock
+    def test_no_meta_full_page_continues(self) -> None:
+        route = respx.get(f"{V2}/models").mock(side_effect=[
+            httpx.Response(200, json={"data": _slug_page([f"a{i}" for i in range(50)], 1, 1)["data"]}),
+            httpx.Response(200, json={"data": _slug_page(["z"], 2, 2)["data"]}),
+        ])
+        with _client() as c:
+            assert get_card(c._http_client, "z") is not None
+        assert route.call_count == 2
+
+    @respx.mock
+    def test_ttl_refresh(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        now = [1000.0]
+        monkeypatch.setattr("deapi_sdk._cards.time.monotonic", lambda: now[0])
+        route = respx.get(f"{V2}/models").mock(return_value=httpx.Response(200, json=_slug_page(["m"], 1, 1)))
+        with _client() as c:
+            get_card(c._http_client, "m")
+            now[0] += 10
+            get_card(c._http_client, "m")
+            assert route.call_count == 1
+            now[0] += 400  # past the TTL
+            get_card(c._http_client, "m")
+        assert route.call_count == 2
+
+    @respx.mock
+    def test_refresh_on_slug_miss_is_throttled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        now = [1000.0]
+        monkeypatch.setattr("deapi_sdk._cards.time.monotonic", lambda: now[0])
+        route = respx.get(f"{V2}/models").mock(side_effect=[
+            httpx.Response(200, json=_slug_page(["old"], 1, 1)),
+            httpx.Response(200, json=_slug_page(["old", "new"], 1, 1)),
+        ])
+        with _client() as c:
+            assert get_card(c._http_client, "new") is None  # first load: not there yet
+            assert get_card(c._http_client, "new") is None  # miss inside the cooldown: no refetch
+            assert route.call_count == 1
+            now[0] += 31
+            assert get_card(c._http_client, "new") is not None  # miss after the cooldown refreshes
+        assert route.call_count == 2
+
+    @respx.mock
+    def test_stale_cards_kept_when_refresh_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        now = [1000.0]
+        monkeypatch.setattr("deapi_sdk._cards.time.monotonic", lambda: now[0])
+        respx.get(f"{V2}/models").mock(side_effect=[
+            httpx.Response(200, json=_slug_page(["m"], 1, 1)),
+            httpx.Response(401, json={"message": "x"}),
+        ])
+        with _client(max_retries=0) as c:
+            get_card(c._http_client, "m")
+            now[0] += 400
+            assert get_card(c._http_client, "m") is not None
+
+    @respx.mock
+    async def test_async_accessor_all_pages(self) -> None:
+        route = respx.get(f"{V2}/models").mock(side_effect=[
+            httpx.Response(200, json=_slug_page([f"a{i}" for i in range(50)], 1, 2)),
+            httpx.Response(200, json=_slug_page(["b"], 2, 2)),
+        ])
+        async with AsyncDeapiClient(api_key=KEY, base_url=BASE, api_version="v2") as c:
+            assert await aget_card(c._http_client, "b") is not None
+            assert await aget_card(c._http_client, "a0") is not None
+        assert route.call_count == 2
+
+
+def test_repr_does_not_leak_api_key() -> None:
+    from deapi_sdk._config import ClientConfig
+
+    config = ClientConfig.from_env(api_key=KEY)
+    assert KEY not in repr(config) and KEY not in str(config)
+    with _client() as c:
+        assert KEY not in repr(c) and KEY not in repr(c._http_client)
+        assert KEY not in repr(c._http_client._config)

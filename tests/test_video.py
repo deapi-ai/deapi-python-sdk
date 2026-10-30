@@ -8,7 +8,7 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
+from deapi_sdk import AsyncDeapiClient, DeapiClient
 
 TEST_BASE_URL = "https://test.deapi.ai"
 TEST_API_KEY = "test-key-123"
@@ -135,7 +135,7 @@ class TestVideoAnimate:
         )
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"fake-png-data")
-            tmp_path = f.name
+            tmp_path = Path(f.name)
 
         job = client.video.animate(
             prompt="animate",

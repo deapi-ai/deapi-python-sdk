@@ -9,7 +9,7 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
+from deapi_sdk import AsyncDeapiClient, DeapiClient
 
 V2 = "https://test.deapi.ai/api/v2"
 SUBMIT = {"data": {"request_id": "req-1"}}
@@ -420,7 +420,7 @@ class TestPrompts:
     def test_booster_types_exported(self) -> None:
         from typing import get_args
 
-        from deapi.types.v1.prompts import PromptBoosterType
+        from deapi_sdk.types.v1.prompts import PromptBoosterType
 
         assert set(get_args(PromptBoosterType)) == {
             "images.generations", "images.edits", "videos.generations",

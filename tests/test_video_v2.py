@@ -10,9 +10,9 @@ import httpx
 import pytest
 import respx
 
-from deapi import AsyncDeapiClient, DeapiClient
-from deapi.types.common import JobResult
-from deapi.types.v1.video import VideoDescription, parse_video_description
+from deapi_sdk import AsyncDeapiClient, DeapiClient
+from deapi_sdk.types.common import JobResult
+from deapi_sdk.types.v1.video import VideoDescription, parse_video_description
 
 V2 = "https://test.deapi.ai/api/v2"
 JOB = {"data": {"request_id": "job-1"}}
@@ -297,14 +297,14 @@ class TestDescriptionResult:
     @respx.mock
     def test_download_error(self, client_v2: DeapiClient) -> None:
         respx.get("https://storage.example/gone.json").mock(return_value=httpx.Response(404))
-        from deapi._exceptions import DeapiError
+        from deapi_sdk._exceptions import DeapiError
 
         with pytest.raises(DeapiError):
             client_v2.video.get_description("https://storage.example/gone.json")
 
     @respx.mock
     def test_download_errors_and_bad_json(self, client_v2: DeapiClient) -> None:
-        from deapi._exceptions import DeapiError, NetworkError
+        from deapi_sdk._exceptions import DeapiError, NetworkError
 
         url = "https://storage.example/x.json"
         respx.get(url).mock(return_value=httpx.Response(403))
@@ -320,7 +320,7 @@ class TestDescriptionResult:
 
     @respx.mock
     async def test_async_download_errors_and_bad_json(self, async_client_v2: AsyncDeapiClient) -> None:
-        from deapi._exceptions import DeapiError, NetworkError
+        from deapi_sdk._exceptions import DeapiError, NetworkError
 
         url = "https://storage.example/x.json"
         respx.get(url).mock(return_value=httpx.Response(500))
@@ -368,7 +368,9 @@ class TestAsyncParity:
         await async_client_v2.video.animate(
             prompt="p", model="m", ref_images=[b"1", b"2"], ref_audios=[b"a"], ref_videos=[b"v"]
         )
-        assert names(ani.calls.last.request)[-4:] == ["ref_images[0]", "ref_images[1]", "ref_videos[0]", "ref_audios[0]"]
+        assert names(ani.calls.last.request)[-4:] == [
+            "ref_images[0]", "ref_images[1]", "ref_videos[0]", "ref_audios[0]",
+        ]
         with pytest.raises(ValueError):
             await async_client_v2.video.animate(prompt="p", model="m", ref_images=[b"1"], first_frame_image=b"f")
 
@@ -383,7 +385,9 @@ class TestAsyncParity:
     @respx.mock
     async def test_describe_and_fetch(self, async_client_v2: AsyncDeapiClient) -> None:
         route = respx.post(f"{V2}/videos/descriptions").mock(return_value=httpx.Response(200, json=JOB))
-        await async_client_v2.video.describe(model="m", video_file=b"x", webhook_url="https://x.example/h", webhook_secret=SECRET)
+        await async_client_v2.video.describe(
+            model="m", video_file=b"x", webhook_url="https://x.example/h", webhook_secret=SECRET
+        )
         assert dict(multipart_fields(route.calls.last.request))["video_file"] == b"x"
         with pytest.raises(ValueError):
             await async_client_v2.video.describe(model="m")

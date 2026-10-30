@@ -7,11 +7,13 @@ import httpx
 import pytest
 import respx
 
-from deapi import (
+from deapi_sdk import (
     AsyncDeapiClient,
     DeapiClient,
 )
-from deapi._exceptions import (
+from deapi_sdk._client import BaseClient
+from deapi_sdk._config import ClientConfig
+from deapi_sdk._exceptions import (
     AccountSuspendedError,
     AuthenticationError,
     DeapiError,
@@ -226,3 +228,102 @@ class TestAsyncClient:
         async with AsyncDeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, api_version="v1") as client:
             balance = await client.balance()
             assert balance.balance == 1.0
+
+
+def _base(max_retry_after: float = 60.0) -> BaseClient:
+    return BaseClient(
+        ClientConfig(api_key="k", max_retries=3, max_retry_after=max_retry_after)
+    )
+
+
+class TestRetryAfterCap:
+    """A 429 Retry-After is honoured but never sleeps past the cap."""
+
+    def test_default_cap_is_60s(self) -> None:
+        assert ClientConfig(api_key="k").max_retry_after == 60.0
+
+    def test_value_below_cap_is_honoured(self) -> None:
+        wait = _base()._should_retry(RateLimitError("rl", retry_after=5.0), attempt=0)
+        assert wait == 5.0
+
+    def test_huge_value_is_capped(self) -> None:
+        # e.g. a day-bucket Retry-After, or a far-future HTTP-date parsed to seconds
+        wait = _base()._should_retry(RateLimitError("rl", retry_after=3600.0), attempt=0)
+        assert wait == 60.0
+
+    def test_cap_is_configurable(self) -> None:
+        wait = _base(max_retry_after=45.0)._should_retry(
+            RateLimitError("rl", retry_after=3600.0), attempt=0
+        )
+        assert wait == 45.0
+
+    def test_floor_is_1s(self) -> None:
+        wait = _base()._should_retry(RateLimitError("rl", retry_after=0.0), attempt=0)
+        assert wait == 1.0
+
+
+class TestInjectableHTTPClient:
+    """An httpx client can be injected and shared; auth goes per-request."""
+
+    def test_default_client_is_owned_and_closed(self) -> None:
+        client = DeapiClient(api_key=TEST_API_KEY, base_url=TEST_BASE_URL)
+        assert client._http_client.owns_http_client is True
+        underlying = client._http_client._http
+        client.close()
+        assert underlying.is_closed
+
+    @respx.mock
+    def test_injected_client_not_closed_and_auth_per_request(self) -> None:
+        route = respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+            return_value=httpx.Response(200, json={"data": {"balance": 1.0}})
+        )
+        injected = httpx.Client()  # no auth baked into the transport
+        client = DeapiClient(
+            api_key=TEST_API_KEY,
+            base_url=TEST_BASE_URL,
+            api_version="v1",
+            http_client=injected,
+        )
+        assert client._http_client.owns_http_client is False
+        client.balance()
+        # auth travelled on the request, not on the shared transport
+        assert route.calls.last.request.headers["Authorization"] == f"Bearer {TEST_API_KEY}"
+        client.close()
+        assert injected.is_closed is False  # injected client must survive close()
+        injected.close()
+
+    @respx.mock
+    def test_injected_client_closed_when_owned(self) -> None:
+        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+            return_value=httpx.Response(200, json={"data": {"balance": 1.0}})
+        )
+        injected = httpx.Client()
+        client = DeapiClient(
+            api_key=TEST_API_KEY,
+            base_url=TEST_BASE_URL,
+            api_version="v1",
+            http_client=injected,
+            owns_http_client=True,
+        )
+        assert client._http_client.owns_http_client is True
+        client.close()
+        assert injected.is_closed is True
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_async_injected_client_not_closed(self) -> None:
+        respx.get(f"{TEST_BASE_URL}/api/v1/client/balance").mock(
+            return_value=httpx.Response(200, json={"data": {"balance": 2.0}})
+        )
+        injected = httpx.AsyncClient()
+        client = AsyncDeapiClient(
+            api_key=TEST_API_KEY,
+            base_url=TEST_BASE_URL,
+            api_version="v1",
+            http_client=injected,
+        )
+        assert client._http_client.owns_http_client is False
+        await client.balance()
+        await client.close()
+        assert injected.is_closed is False
+        await injected.aclose()

@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from deapi.webhook import (
+from deapi_sdk.webhook import (
     InvalidSignatureError,
     WebhookEvent,
     construct_event,
@@ -34,7 +34,7 @@ SAMPLE_PAYLOAD = json.dumps({
 
 def _make_signature(payload: str, timestamp: str, secret: str = SECRET) -> str:
     """Create a valid signature for testing."""
-    signed_content = f"{timestamp}.".encode("utf-8") + payload.encode("utf-8")
+    signed_content = f"{timestamp}.".encode() + payload.encode("utf-8")
     sig = hmac.new(secret.encode("utf-8"), signed_content, hashlib.sha256).hexdigest()
     return f"sha256={sig}"
 
@@ -196,7 +196,7 @@ class TestConstructEvent:
 
 class TestInvalidSignatureError:
     def test_is_deapi_error(self) -> None:
-        from deapi._exceptions import DeapiError
+        from deapi_sdk._exceptions import DeapiError
         err = InvalidSignatureError()
         assert isinstance(err, DeapiError)
 

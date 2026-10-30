@@ -59,7 +59,7 @@ Keys have a role. **ADMIN** keys can do everything. **API** keys run jobs but ge
 ## Quick Start
 
 ```python
-from deapi import DeapiClient
+from deapi_sdk import DeapiClient
 
 client = DeapiClient(api_key="sk-dp-<id>-<secret>")
 
@@ -314,7 +314,7 @@ Every method has an async equivalent via `AsyncDeapiClient`:
 
 ```python
 import asyncio
-from deapi import AsyncDeapiClient
+from deapi_sdk import AsyncDeapiClient
 
 async def main():
     async with AsyncDeapiClient(api_key="sk-dp-<id>-<secret>") as client:
@@ -349,7 +349,7 @@ result = job.status()       # or poll once yourself: result.status, result.progr
 If `wait()` times out it raises `JobTimeoutError`, but **the job keeps running**. Resume it any time:
 
 ```python
-from deapi import JobTimeoutError
+from deapi_sdk import JobTimeoutError
 
 try:
     result = job.wait(max_wait=60)
@@ -384,7 +384,7 @@ DeapiError
 ```
 
 ```python
-from deapi import (
+from deapi_sdk import (
     DeapiError, InsufficientBalanceError, KeyLimitExceededError, IpNotAllowedError,
     InsufficientPermissionsError, ValidationError, RateLimitError, JobTimeoutError,
 )
@@ -438,7 +438,7 @@ job = client.images.generate(
 Verify incoming requests with the same secret:
 
 ```python
-from deapi.webhook import construct_event, InvalidSignatureError
+from deapi_sdk.webhook import construct_event, InvalidSignatureError
 
 @app.post("/webhooks/deapi")
 async def handle_webhook(request: Request):
