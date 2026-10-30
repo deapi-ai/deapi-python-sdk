@@ -26,7 +26,6 @@ from deapi_sdk.types.video import (
     Text2VideoParams,
     VideoDescription,
     VideoEvent,
-    VideoReplaceParams,
     parse_video_description,
 )
 
@@ -62,6 +61,5 @@ __all__ = [
     "UsageReport",
     "VideoDescription",
     "VideoEvent",
-    "VideoReplaceParams",
     "parse_video_description",
 ]

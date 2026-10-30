@@ -53,17 +53,6 @@ class Aud2VideoParams(BaseModel):
     webhook_secret: str | None = None
 
 
-class VideoReplaceParams(BaseModel):
-    model: str
-    prompt: str | None = None
-    width: int | None = None
-    height: int | None = None
-    steps: int | None = None
-    seed: int | None = None
-    webhook_url: str | None = None
-    webhook_secret: str | None = None
-
-
 class VideoEvent(BaseModel):
     """One timestamped on-screen event (``start`` / ``end`` in seconds)."""
 

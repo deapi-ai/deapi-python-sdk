@@ -27,12 +27,8 @@ ENDPOINTS: dict[str, str] = {
     "img2video_price": "videos/animations/price",
     "vid_upscale": "videos/upscales",
     "vid_upscale_price": "videos/upscales/price",
-    "vid_rmbg": "videos/background-removals",
-    "vid_rmbg_price": "videos/background-removals/price",
     "aud2video": "videos/audio-syncs",
     "aud2video_price": "videos/audio-syncs/price",
-    "vid_replace": "videos/replacements",
-    "vid_replace_price": "videos/replacements/price",
     "vid_description": "videos/descriptions",
     "vid_description_price": "videos/descriptions/price",
     # Transcription (unified — single endpoint replaces all v1 transcription routes)

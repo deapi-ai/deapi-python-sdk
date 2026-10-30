@@ -1,7 +1,6 @@
 """Video generation examples.
 
-Demonstrates text-to-video, image-to-video, audio-to-video, video replace,
-upscale, and background removal.
+Demonstrates text-to-video, image-to-video, audio-to-video and upscale.
 
 Usage:
     export DEAPI_API_KEY="sk-dp-<id>-<secret>"
@@ -101,47 +100,14 @@ print(f"Video URL: {result.result_url}")
 #     steps=20,
 # )
 
-# --- Video replace (swap character) ---
-
-# Uncomment to run — requires a video and a reference image:
-#
-# print("\nReplacing character in video...")
-# job = client.video.replace(
-#     video="input.mp4",
-#     ref_image="reference_face.png",
-#     model="vid-replace-model",
-#     prompt="replace the character",
-# )
-# result = job.wait()
-# print(f"Video replace: {result.result_url}")
-
-# Price calculation for video replace:
-#
-# price = client.video.replace_price(
-#     model="vid-replace-model",
-#     duration=10.5,  # or pass video=b"..." to auto-detect duration
-#     width=512,
-#     height=512,
-# )
-# print(f"Replace price: ${price.price}")
-
 # --- Video upscale ---
 
 # Uncomment to run — requires a video file:
 #
 # print("\nUpscaling video...")
-# job = client.video.upscale(video="low_res.mp4", model="vid-upscale-model")
+# job = client.video.upscale(video=Path("low_res.mp4"), model="vid-upscale-model")  # from pathlib import Path
 # result = job.wait()
 # print(f"Upscaled: {result.result_url}")
-
-# --- Video background removal ---
-
-# Uncomment to run — requires a video file:
-#
-# print("\nRemoving video background...")
-# job = client.video.remove_background(video="greenscreen.mp4", model="vid-rmbg-model")
-# result = job.wait()
-# print(f"Background removed: {result.result_url}")
 
 # --- Price calculation ---
 
