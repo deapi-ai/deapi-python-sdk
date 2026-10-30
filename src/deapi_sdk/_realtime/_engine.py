@@ -42,6 +42,8 @@ _INSTALL_HINT = 'WebSocket support needs the optional "ws" extra: pip install "d
 
 # Largest frame accepted. Status events can carry a base64 preview image.
 _MAX_FRAME_BYTES: Final = 16 * 1024 * 1024
+# How long a WebSocket close handshake may take before the connection is dropped.
+_CLOSE_TIMEOUT: Final = 2.0
 
 
 class _Reconnected:
@@ -200,7 +202,8 @@ class Engine:
         # CancelledError, so a cancellation of close() itself still propagates.
         while task is not None and not task.done():
             task.cancel()
-            await asyncio.wait({task}, timeout=1.0)
+            # Longer than _CLOSE_TIMEOUT, so a graceful WebSocket close is not interrupted.
+            await asyncio.wait({task}, timeout=_CLOSE_TIMEOUT + 3.0)
         self._stop(self._fatal)
 
     def _stop(self, error: BaseException | None) -> None:
@@ -263,7 +266,7 @@ class Engine:
             open_timeout=self._connect_timeout,
             # Keepalive runs at the protocol level (pusher:ping), as the server expects.
             ping_interval=None,
-            close_timeout=5,
+            close_timeout=_CLOSE_TIMEOUT,
             max_size=_MAX_FRAME_BYTES,
         ) as ws:
             try:

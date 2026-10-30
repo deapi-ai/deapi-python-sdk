@@ -138,12 +138,17 @@ class FakePusherServer:
             loop.close()
 
     async def _startup(self) -> None:
-        self._server = await serve(self._handler, "127.0.0.1", 0, compression=None, ping_interval=None, close_timeout=1)
+        self._server = await serve(
+            self._handler, "127.0.0.1", 0, compression=None, ping_interval=None, close_timeout=1, open_timeout=1
+        )
         self._port = next(iter(self._server.sockets)).getsockname()[1]
 
     async def _shutdown(self) -> None:
         if self._server is None:
             return
+        # Abort instead of a close handshake: a test may leave a client that never answers it.
+        for conn in list(self._server.all_connections):
+            conn.transport.abort()
         self._server.close()
         await self._server.wait_closed()
 
