@@ -160,3 +160,25 @@ class JobTimeoutError(DeapiError):
 
 class NetworkError(DeapiError):
     """Network connectivity error."""
+
+
+class RealtimeError(DeapiError):
+    """Fatal real-time (WebSocket) failure: the connection or channel subscription was refused.
+
+    Raised for errors that reconnecting cannot fix, e.g. the server rejecting the
+    channel authorization (a ``client_id`` that does not belong to the API key)
+    or closing the connection with a "do not reconnect" code. ``close_code`` is
+    the WebSocket close code when the failure came from one, else ``None``.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        close_code: int | None = None,
+        status_code: int | None = None,
+        body: dict | None = None,  # type: ignore[type-arg]
+        code: str | None = None,
+    ) -> None:
+        super().__init__(message, status_code=status_code, body=body, code=code)
+        self.close_code = close_code

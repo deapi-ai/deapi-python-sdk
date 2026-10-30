@@ -45,6 +45,38 @@ class JobResult(BaseModel):
     model_config = {"extra": "allow"}
 
 
+class JobStatusEvent(BaseModel):
+    """A real-time job status update delivered over WebSocket (``request.status.updated``).
+
+    ``status`` is ``processing``, ``in_progress`` or ``done``; failed jobs are not
+    announced over WebSocket. Unknown future statuses are kept as plain strings.
+    ``progress`` is a percentage (0-100); the wire format sends it as a decimal
+    string, which is converted to ``float``.
+    """
+
+    request_id: str
+    # left_to_right: known values become JobStatus members instead of plain str
+    status: JobStatus | str = Field(union_mode="left_to_right")
+    progress: float | None = None
+    preview: str | None = None
+    result_url: str | None = None
+
+    model_config = {"extra": "allow"}
+
+    @field_validator("progress", mode="before")
+    @classmethod
+    def _parse_progress(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return None
+            try:
+                return float(value)
+            except ValueError:
+                return None
+        return value
+
+
 class PriceResult(BaseModel):
     # The spec marks nothing required; ``price`` may be absent when ``estimate_basis`` is "unavailable".
     price: float | None = None

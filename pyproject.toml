@@ -30,7 +30,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Real-time job status over WebSocket: client.realtime(...)
+ws = [
+    "websockets>=17.0,<18",
+]
 dev = [
+    "websockets>=17.0,<18",
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
     "respx>=0.21",

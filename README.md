@@ -18,6 +18,7 @@ Generate images, videos, audio, transcriptions, embeddings, and more — all thr
 - **Account and keys** — balance, usage, payments, API-key management (API v2, ADMIN keys)
 - **Sync + Async** — both `DeapiClient` and `AsyncDeapiClient`
 - **Job polling** — automatic exponential backoff with `.wait()`, resumable after a timeout
+- **Real-time status** — live job progress over WebSocket (optional `[ws]` extra)
 - **Precise errors** — every exception carries the API's machine-readable `code`
 - **Safe auto-retry** — GETs retry on 429/5xx/network errors; job-creating POSTs never retry after a timeout or 5xx (no double charges)
 - **Model-card defaults** — `width`, `height`, `steps`, `fps`, `seed`, ... are optional; the SDK fills them from the model card
@@ -33,6 +34,12 @@ The SDK is **not on PyPI yet**. Install it straight from GitHub:
 pip install git+https://github.com/deapi-ai/deapi-python-sdk.git
 # or pin a branch, tag or commit:
 pip install git+https://github.com/deapi-ai/deapi-python-sdk.git@main
+```
+
+Real-time job updates over WebSocket need the optional `ws` extra (installs `websockets`):
+
+```bash
+pip install "deapi-sdk[ws] @ git+https://github.com/deapi-ai/deapi-python-sdk.git"
 ```
 
 > `pip install deapi` installs an **unrelated** package. Do not use it.
@@ -94,6 +101,9 @@ client = DeapiClient(
 | `base_url` | `DEAPI_BASE_URL` | `https://api.deapi.ai` |
 | `api_version` | `DEAPI_API_VERSION` | `v2` |
 | `fill_model_defaults` | `DEAPI_FILL_MODEL_DEFAULTS` (`0` disables) | on |
+| `client_id` (`client.realtime()`) | `DEAPI_CLIENT_ID` | none |
+| `ws_url` (`client.realtime()`) | `DEAPI_WS_URL` | `wss://soketi.deapi.ai` |
+| `app_key` (`client.realtime()`) | `DEAPI_WS_APP_KEY` | public app key |
 | `timeout` | — | `30.0` |
 | `max_retries` | — | `3` |
 
@@ -357,6 +367,57 @@ except JobTimeoutError as e:
     result = client.jobs.get(e.request_id).wait()   # or client.jobs.status(e.request_id)
 ```
 
+## Real-time Updates (WebSocket)
+
+Instead of polling, follow your jobs live over one WebSocket connection. Install the `ws` extra
+(see [Installation](#installation)) and open a connection **before** submitting jobs:
+
+```python
+from deapi_sdk import DeapiClient
+
+with DeapiClient(api_key="sk-dp-<id>-<secret>") as client:
+    with client.realtime(client_id="your-client-id") as rt:
+        job = client.images.generate(prompt="a cat in space", model="Flux1schnell", width=1024, height=1024)
+
+        result = rt.wait(job, on_progress=lambda e: print(e.status, e.progress))   # same JobResult as job.wait()
+        print(result.status, result.result_url)
+
+        for event in rt.events():      # every status event on your channel (all your jobs); blocks
+            print(event.request_id, event.status, event.progress)
+```
+
+Async works the same way:
+
+```python
+async with AsyncDeapiClient() as client:
+    async with client.realtime(client_id="your-client-id") as rt:
+        job = await client.images.generate(prompt="a cat in space", model="Flux1schnell", width=1024, height=1024)
+        result = await rt.wait(job, on_progress=callback)   # plain function or async function
+        async for event in rt.events():
+            ...
+```
+
+- **`client_id`** is the "Client ID" shown in your deAPI dashboard. It falls back to `DEAPI_CLIENT_ID`
+  only when you do not pass it; an explicit argument always wins. Servers handling many users should
+  pass it explicitly per user. A `client_id` that does not belong to the API key raises `RealtimeError`.
+- **`rt.wait(job_or_request_id)`** accepts a `Job` or a request id. WebSocket events drive progress and
+  completion; on `done` the SDK fetches the final `JobResult` over HTTP (fresh signed `result_url`, all
+  fields).
+- **Failed jobs are not announced over WebSocket.** `wait()` therefore also checks the job over HTTP
+  every `poll_interval` seconds (default 10) and right after every reconnect. A failed job is returned
+  with `status == "error"`, exactly like `job.wait()`. After `max_wait` (default 300 s) it raises
+  `JobTimeoutError`.
+- **Reconnects** happen automatically with exponential backoff and the channel is re-subscribed. Events
+  sent while disconnected are lost; `wait()` compensates by checking the job over HTTP after
+  reconnecting. `rt.connected` tells you whether the socket is up.
+- `JobStatusEvent` has `request_id`, `status` (`processing`, `in_progress`, `done`), `progress` (0-100),
+  `preview` (base64 data URI, image jobs) and `result_url` (only on `done`).
+- `ws_url` / `app_key` (env `DEAPI_WS_URL` / `DEAPI_WS_APP_KEY`) are only needed for non-production
+  environments. Without the extra, connecting raises an `ImportError` telling you to install
+  `deapi-sdk[ws]`.
+
+See [`examples/realtime_status.py`](examples/realtime_status.py).
+
 ## Error Handling
 
 Every exception derives from `DeapiError` and carries `.code` (the API's machine-readable code, or
@@ -380,6 +441,7 @@ DeapiError
 ├── RateLimitError                   429  retry_after, limit_type
 ├── ServerError                      5xx
 ├── NetworkError                     connection failure / timeout
+├── RealtimeError                    fatal WebSocket failure (.close_code)
 └── JobTimeoutError                  polling exceeded max_wait (request_id; the job keeps running)
 ```
 
@@ -494,6 +556,7 @@ The [`examples/`](examples/) directory contains runnable scripts:
 | [`transcription.py`](examples/transcription.py) | Transcription with JSON and plain-text transcripts |
 | [`tts_and_audio.py`](examples/tts_and_audio.py) | Text-to-speech and music generation |
 | [`video_generation.py`](examples/video_generation.py) | Text-to-video and image-to-video |
+| [`realtime_status.py`](examples/realtime_status.py) | Live job progress over WebSocket |
 | [`webhook_server.py`](examples/webhook_server.py) | Flask webhook receiver with signature verification |
 | [`error_handling.py`](examples/error_handling.py) | Error handling patterns and best practices |
 
@@ -502,6 +565,7 @@ The [`examples/`](examples/) directory contains runnable scripts:
 - Python 3.11+
 - [`httpx`](https://www.python-httpx.org/) >= 0.25.0
 - [`pydantic`](https://docs.pydantic.dev/) >= 2.6.0
+- [`websockets`](https://websockets.readthedocs.io/) 17.x (optional, `ws` extra)
 
 ## License
 
