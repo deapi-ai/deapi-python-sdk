@@ -602,8 +602,8 @@ class TestKeepalive:
         rt._engine._max_activity_timeout = 0.1
         rt._engine._pong_timeout = 0.1
         with rt:
-            server.wait_for(lambda: server.connections_total >= 2)
-            assert len(auth.bodies) >= 2
+            # The reconnect is visible to the server before its channel authorization finishes.
+            server.wait_for(lambda: server.connections_total >= 2 and len(auth.bodies) >= 2)
 
     def test_unanswered_server_ping_is_not_fatal(
         self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
@@ -1048,7 +1048,7 @@ class TestAsyncKeepalive:
         rt._engine._max_activity_timeout = 0.1
         rt._engine._pong_timeout = 0.1
         async with rt:
-            await until(lambda: server.connections_total >= 2)
+            await until(lambda: server.connections_total >= 2 and len(auth.bodies) >= 2)
 
 
 class TestAsyncEvents:
