@@ -1,12 +1,9 @@
 """Integration tests that run against the production DeAPI server.
 
-These tests are SKIPPED by default. To run them:
+These tests are excluded by default (``addopts = "-m 'not integration'"`` in pyproject.toml).
+Run them explicitly:
 
-    export DEAPI_API_KEY="sk-your-real-key"
-    pytest tests/test_integration.py -m integration -v
-
-You can also run all tests including integration:
-
+    export DEAPI_API_KEY="sk-dp-<id>-<secret>"
     pytest -m integration -v
 
 These tests will incur real API costs. Use a test account or budget accordingly.
@@ -53,9 +50,10 @@ async def live_async_client() -> AsyncDeapiClient:
 
 
 def _find_model(client: DeapiClient, inference_type: str) -> ModelInfo | None:
-    """Find the first active model supporting a given inference type."""
-    models = client.models.list(inference_types=[inference_type], limit=5)
-    return models.data[0] if models.data else None
+    """Find the first standard (non-test) model supporting a given inference type."""
+    models = client.models.list(inference_types=[inference_type], limit=50)
+    standard = [m for m in models.data if m.status != "test_model"]
+    return standard[0] if standard else None
 
 
 def _build_txt2img_params(model: ModelInfo) -> dict[str, Any]:

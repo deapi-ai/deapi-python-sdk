@@ -64,6 +64,8 @@ strict = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Integration tests call the production API and cost money: run them only with `pytest -m integration`.
+addopts = "-m 'not integration'"
 testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [

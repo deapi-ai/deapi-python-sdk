@@ -7,6 +7,8 @@ Usage:
     python examples/tts_and_audio.py
 """
 
+from pathlib import Path  # noqa: F401 - used by the commented-out examples below
+
 from deapi_sdk import DeapiClient
 
 client = DeapiClient()
@@ -28,18 +30,17 @@ print(f"Audio URL: {result.result_url}")
 
 # --- TTS with voice cloning ---
 
-# Uncomment to run — requires a reference audio file (3-10 seconds):
+# Uncomment to run — requires a reference audio file (5-15 seconds). Voice cloning needs a
+# model whose card has supports_voice_clone (here Qwen3_TTS_12Hz_1_7B_Base; Kokoro does not clone).
 #
 # print("\nCloning voice...")
 # job = client.audio.synthesize(
 #     text="This is generated using a cloned voice.",
-#     model="Kokoro",
-#     lang="en-us",
-#     format="wav",
-#     speed=1.0,
-#     sample_rate=24000,
+#     model="Qwen3_TTS_12Hz_1_7B_Base",
+#     lang="English",
+#     format="mp3",
 #     mode="voice_clone",
-#     ref_audio="voice_sample.wav",   # 3-10 second reference clip
+#     ref_audio=Path("voice_sample.wav"),   # 5-15 second reference clip
 #     ref_text="The original text spoken in the reference.",
 # )
 # result = job.wait()
@@ -75,10 +76,10 @@ print(f"Price for 500 chars: ${price.price}")
 # print("\nComposing music...")
 # job = client.audio.compose(
 #     caption="upbeat electronic track with synth leads and a driving bassline",
-#     model="MusicGen",
-#     duration=30,             # 30 seconds
-#     inference_steps=50,
-#     guidance_scale=3.0,
+#     model="AceStep_1_5_XL_Turbo_INT8",
+#     duration=30,             # 30 seconds (10-300)
+#     inference_steps=8,       # fixed for this model
+#     guidance_scale=1.0,      # fixed for this model
 #     seed=42,
 #     format="mp3",
 #     lyrics="Dancing in the moonlight, feeling so alive",

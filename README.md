@@ -25,7 +25,7 @@ Generate images, videos, audio, transcriptions, embeddings, and more — all thr
 - **Model-card defaults** — `width`, `height`, `steps`, `fps`, `seed`, ... are optional; the SDK fills them from the model card
 - **Type-safe** — full type hints, Pydantic v2 models, `py.typed` marker
 - **Webhook verification** — HMAC-SHA256 signature validation utility
-- **File flexibility** — accepts file paths, `Path` objects, bytes, or file-like objects
+- **File flexibility** — accepts `Path` objects, bytes, or binary file objects (never a bare `str` path)
 
 ## Installation
 
@@ -51,7 +51,7 @@ For development (`pytest` runs from the repo root):
 git clone https://github.com/deapi-ai/deapi-python-sdk.git
 cd deapi-python-sdk
 pip install -e ".[dev]"
-pytest
+pytest                     # unit tests only; `pytest -m integration` runs paid tests against production
 ```
 
 ## API keys
@@ -107,6 +107,7 @@ client = DeapiClient(
 | `app_key` (`client.realtime()`) | `DEAPI_WS_APP_KEY` | public app key |
 | `timeout` | — | `30.0` |
 | `max_retries` | — | `3` |
+| `max_retry_after` | — | `60.0` (cap on a 429 `Retry-After` sleep, in seconds) |
 
 ```python
 client = DeapiClient()                # reads the environment
@@ -130,6 +131,8 @@ Disable with `DeapiClient(fill_model_defaults=False)` or `DEAPI_FILL_MODEL_DEFAU
 ### Image Generation
 
 ```python
+from pathlib import Path
+
 # Text-to-image
 job = client.images.generate(
     prompt="mountain landscape at sunset",
@@ -149,46 +152,48 @@ print(result.results_alt_formats)  # {"jpg": "...", "webp": "..."}
 # Image edits: image= for one source, images=[...] for several (not both)
 job = client.images.transform(
     prompt="make it look like a watercolor painting",
-    image="photo.jpg",                 # path, Path, bytes or file-like
+    image=Path("photo.jpg"),           # Path, bytes or a binary file object (not a plain str)
     model="QwenImageEdit_Plus_NF4",
 )
 
-job = client.images.upscale(image="low_res.png", model="RealESRGAN_x4")
-job = client.images.remove_background(image="photo.png", model="Ben2")
+job = client.images.upscale(image=Path("low_res.png"), model="RealESRGAN_x4")
+job = client.images.remove_background(image=Path("photo.png"), model="Ben2")
 ```
 
 ### Video Generation
 
 ```python
+from pathlib import Path
+
 # Text-to-video
 job = client.video.generate(
     prompt="a rocket launching into space",
-    model="Ltx2_19B_Dist_FP8",
+    model="Ltx2_5_22B_Dist_INT8",
     width=768, height=512, frames=120, fps=24,
 )
 
 # Image-to-video with keyframes
 job = client.video.animate(
     prompt="gentle camera pan across the scene",
-    first_frame_image="landscape.jpg",
-    model="Ltx2_19B_Dist_FP8",
+    first_frame_image=Path("landscape.jpg"),
+    model="Ltx2_5_22B_Dist_INT8",
 )
 
 # Reference mode: list order binds files to <Picture N> / <Video N> / <Audio N> in the prompt.
 # Mutually exclusive with first/last frame images.
 job = client.video.animate(
     prompt="<Picture 1> walks through the scene from <Video 1>, speaking <Audio 1>",
-    model="<model-with-reference-support>",
-    ref_images=["character.png"],
-    ref_videos=["scene.mp4"],
-    ref_audios=["voice.mp3"],
+    model="MiniMaxH3_33B_Turbo_INT8",    # a model whose card has supports_*_refs
+    ref_images=[Path("character.png")],
+    ref_videos=[Path("scene.mp4")],
+    ref_audios=[Path("voice.mp3")],
 )
 
 # Audio-to-video
 job = client.video.generate_from_audio(
     prompt="visualize the music with abstract shapes",
-    audio="track.mp3",
-    model="ltx-audio2video",
+    audio=Path("track.mp3"),
+    model="Ltx2_5_22B_Dist_INT8",
 )
 
 # Describe a video: events, scenes and metadata
@@ -206,6 +211,8 @@ the API never accepts more than 9 images, 1 video or 3 audios.
 ### Audio
 
 ```python
+from pathlib import Path
+
 # Text-to-speech
 job = client.audio.synthesize(
     text="Hello, welcome to DeAPI!",
@@ -218,17 +225,19 @@ job = client.audio.synthesize(
 # Text-to-music, optionally with a style reference clip
 job = client.audio.compose(
     caption="upbeat electronic track with synth leads",
-    model="MusicGen",
+    model="AceStep_1_5_XL_Turbo_INT8",
     duration=30,
-    reference_audio="style.mp3",
+    reference_audio=Path("style.mp3"),
 )
 ```
 
 ### Transcription
 
 ```python
+from pathlib import Path
+
 job = client.transcription.create(
-    source_url="https://youtube.com/watch?v=dQw4w9WgXcQ",   # or source_file="interview.mp3"
+    source_url="https://youtube.com/watch?v=dQw4w9WgXcQ",   # or source_file=Path("interview.mp3")
     model="WhisperLargeV3Ct2",
     ts_level="segment",       # segment | word | char (implies include_ts)
     diarize=True,             # label speakers (implies timestamps)
@@ -251,13 +260,15 @@ return plain text with timestamps inline. `client.transcription.get_transcript(r
 ### Embeddings and OCR
 
 ```python
+from pathlib import Path
+
 job = client.embeddings.create(
     input=["first sentence", "second sentence"],   # or a single string
     model="Bge_M3_FP16",
     return_result_in_response=True,
 )
 
-job = client.ocr.extract(image="scan.png", model="<ocr-model>", return_result_in_response=True)
+job = client.ocr.extract(image=Path("scan.png"), model="Nanonets_Ocr_S_F16", return_result_in_response=True)
 ```
 
 ### Prompt Enhancement

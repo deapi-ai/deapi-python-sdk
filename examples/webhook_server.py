@@ -59,8 +59,9 @@ def handle_webhook() -> tuple:
         print(f"Job {event.data.job_request_id} started processing")
 
     elif event.type == "job.failed":
-        print(f"Job {event.data.job_request_id} failed!")
-        print(f"  Previous status: {event.data.previous_status}")
+        data = event.data
+        print(f"Job {data.job_request_id} failed: {data.error_code} / {data.error_reason}")
+        print(f"  Retryable: {data.retryable}, refunded: {data.refunded}")
 
     return jsonify({"ok": True}), 200
 
