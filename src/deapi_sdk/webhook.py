@@ -12,14 +12,26 @@ from pydantic import BaseModel
 from deapi_sdk._exceptions import DeapiError
 
 
+class JobPrice(BaseModel):
+    """Cost of a job: ``amount`` and whether it is still an estimate."""
+
+    amount: float
+    is_estimated: bool
+
+    model_config = {"extra": "allow"}
+
+
 class WebhookEventData(BaseModel):
     """Data payload from a webhook event.
 
     ``job.processing`` sets ``started_at``; ``job.completed`` sets ``completed_at``,
-    ``result_url`` and ``processing_time_ms``; ``job.failed`` sets ``failed_at`` and
-    the failure fields. ``error_reason`` is an open list: treat a value you do not
-    recognise as ``PROCESSING_FAILED``, and branch on ``retryable`` to decide
-    whether to resubmit.
+    ``result_url``, ``processing_time_ms`` and ``price``; ``job.failed`` sets ``failed_at``,
+    ``price`` and the failure fields. On ``job.completed`` the price may still be an
+    estimate (``is_estimated``); for the final amount and refund state of a failed job,
+    read the job status endpoint (``client.jobs.status(request_id)``).
+
+    ``error_reason`` is an open list: treat a value you do not recognise as
+    ``PROCESSING_FAILED``, and branch on ``retryable`` to decide whether to resubmit.
     """
 
     job_request_id: str
@@ -30,6 +42,7 @@ class WebhookEventData(BaseModel):
     completed_at: str | None = None
     result_url: str | None = None
     processing_time_ms: int | None = None
+    price: JobPrice | None = None  # job.completed and job.failed
     # Failure details (job.failed only)
     failed_at: str | None = None
     error_code: str | None = None  # WORKER_TIMEOUT | WORKER_ERROR | PROCESSING_ERROR

@@ -50,7 +50,14 @@ from deapi_sdk.types.common import (
     PriceResult,
 )
 from deapi_sdk.types.video import VideoDescription, VideoEvent, parse_video_description
-from deapi_sdk.webhook import InvalidSignatureError, WebhookEvent, WebhookEventData, construct_event, verify_signature
+from deapi_sdk.webhook import (
+    InvalidSignatureError,
+    JobPrice,
+    WebhookEvent,
+    WebhookEventData,
+    construct_event,
+    verify_signature,
+)
 
 
 def _attach_resources_sync(client: DeapiClient) -> None:
@@ -366,6 +373,7 @@ __all__ = [
     "InvalidSignatureError",
     "WebhookEvent",
     "WebhookEventData",
+    "JobPrice",
     "construct_event",
     "verify_signature",
     # Version

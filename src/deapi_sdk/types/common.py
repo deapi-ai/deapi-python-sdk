@@ -49,7 +49,7 @@ class JobStatusEvent(BaseModel):
     """A real-time job status update delivered over WebSocket (``request.status.updated``).
 
     ``status`` is ``processing`` (repeated while ``progress`` grows) or ``done``;
-    failed jobs are not announced over WebSocket. Unknown future statuses are kept
+    failed jobs are usually not announced over WebSocket. Unknown future statuses are kept
     as plain strings. ``progress`` is a percentage (0-100); the wire format sends
     it as a decimal string, which is converted to ``float``.
     """

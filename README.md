@@ -402,8 +402,9 @@ async with AsyncDeapiClient() as client:
 - **`rt.wait(job_or_request_id)`** accepts a `Job` or a request id. WebSocket events drive progress and
   completion; on `done` the SDK fetches the final `JobResult` over HTTP (fresh signed `result_url`, all
   fields).
-- **Failed jobs are not announced over WebSocket.** `wait()` therefore also checks the job over HTTP
-  every `poll_interval` seconds (default 10) and right after every reconnect. A failed job is returned
+- **Failed jobs are usually not announced over WebSocket.** `wait()` therefore also checks the job over
+  HTTP every `poll_interval` seconds (default 10), right after every reconnect and as soon as the socket
+  reports `done` or `error`. A failed job is returned
   with `status == "error"`, exactly like `job.wait()`. After `max_wait` (default 300 s) it raises
   `JobTimeoutError`.
 - **Reconnects** happen automatically with exponential backoff and the channel is re-subscribed. Events
@@ -531,8 +532,11 @@ async def handle_webhook(request: Request):
 - Pass the **raw** request body to `construct_event()`; re-serialised JSON will not match the signature.
 - A delivery replayed within `tolerance` still verifies, so deduplicate on `event.delivery_id`.
 - `job.failed` carries `error_code`, `error_reason` (an open list: treat unknown values as
-  `PROCESSING_FAILED`), `retryable` and `refunded`. Failed jobs are announced only by webhook (and the
-  job status endpoint), never over the real-time WebSocket.
+  `PROCESSING_FAILED`), `retryable` and `refunded`. Failed jobs are reliably announced only by webhook
+  (and the job status endpoint), not over the real-time WebSocket.
+- `job.completed` and `job.failed` carry `price` (`JobPrice`: `amount`, `is_estimated`). On completion it
+  may still be an estimate; for a failed job's final amount and refund state read
+  `client.jobs.status(request_id)`.
 
 ## Upgrading to 0.5.0
 
