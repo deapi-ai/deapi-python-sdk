@@ -48,10 +48,10 @@ class JobResult(BaseModel):
 class JobStatusEvent(BaseModel):
     """A real-time job status update delivered over WebSocket (``request.status.updated``).
 
-    ``status`` is ``processing``, ``in_progress`` or ``done``; failed jobs are not
-    announced over WebSocket. Unknown future statuses are kept as plain strings.
-    ``progress`` is a percentage (0-100); the wire format sends it as a decimal
-    string, which is converted to ``float``.
+    ``status`` is ``processing`` (repeated while ``progress`` grows) or ``done``;
+    failed jobs are not announced over WebSocket. Unknown future statuses are kept
+    as plain strings. ``progress`` is a percentage (0-100); the wire format sends
+    it as a decimal string, which is converted to ``float``.
     """
 
     request_id: str

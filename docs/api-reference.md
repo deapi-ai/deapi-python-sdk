@@ -652,7 +652,7 @@ class JobResult(BaseModel):
 
 class JobStatusEvent(BaseModel):            # realtime status event
     request_id: str
-    status: JobStatus | str                 # "processing" | "in_progress" | "done"; unknown values kept as str
+    status: JobStatus | str                 # "processing" (repeated with growing progress) | "done"; unknown values kept as str
     progress: float | None                  # 0-100
     preview: str | None                     # base64 data URI preview (image jobs)
     result_url: str | None                  # only on "done"; signed, expires
@@ -668,7 +668,7 @@ v2 account and key types: `Account`, `AutoTopUp`, `Payment`, `PaymentsPage`, `Us
 secret), `ApiKeyCreated` (adds `secret`), `ApiKeysPage`; import from `deapi.types.v2`.
 
 ```python
-class JobStatus(StrEnum):  PENDING, PROCESSING, IN_PROGRESS, DONE, ERROR   # IN_PROGRESS: realtime events only
+class JobStatus(StrEnum):  PENDING, PROCESSING, DONE, ERROR
 class InferenceType(StrEnum):  TXT2IMG, IMG2IMG, TXT2AUDIO, TXT2MUSIC, ...   # see deapi_sdk._types
 ```
 

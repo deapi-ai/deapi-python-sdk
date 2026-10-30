@@ -186,7 +186,7 @@ class TestErrorHelpers:
 
 class TestJobStatusEvent:
     def test_progress_string_parsed(self) -> None:
-        ev = JobStatusEvent.model_validate({"request_id": "req-1", "status": "in_progress", "progress": "45.50"})
+        ev = JobStatusEvent.model_validate({"request_id": "req-1", "status": "processing", "progress": "45.50"})
         assert ev.progress == 45.5
         assert isinstance(ev.progress, float)
 
@@ -208,13 +208,18 @@ class TestJobStatusEvent:
         ("raw", "member"),
         [
             ("processing", JobStatus.PROCESSING),
-            ("in_progress", JobStatus.IN_PROGRESS),
             ("done", JobStatus.DONE),
         ],
     )
     def test_known_status_is_enum_member(self, raw: str, member: JobStatus) -> None:
         ev = JobStatusEvent.model_validate({"request_id": "r", "status": raw})
         assert ev.status is member
+
+    def test_in_progress_is_not_a_known_status(self) -> None:
+        # Progress is reported as repeated "processing" events; "in_progress" is not part of the API.
+        ev = JobStatusEvent.model_validate({"request_id": "r", "status": "in_progress"})
+        assert ev.status == "in_progress"
+        assert not isinstance(ev.status, JobStatus)
 
     def test_unknown_status_kept_as_str(self) -> None:
         ev = JobStatusEvent.model_validate({"request_id": "r", "status": "queued_for_gpu"})

@@ -6,9 +6,6 @@ from enum import StrEnum
 class JobStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
-    # Sent only in real-time (WebSocket) events while a job reports progress;
-    # the HTTP job status endpoint keeps reporting "processing".
-    IN_PROGRESS = "in_progress"
     DONE = "done"
     ERROR = "error"
 

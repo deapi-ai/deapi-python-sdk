@@ -410,7 +410,7 @@ async with AsyncDeapiClient() as client:
 - **Reconnects** happen automatically with exponential backoff and the channel is re-subscribed. Events
   sent while disconnected are lost; `wait()` compensates by checking the job over HTTP after
   reconnecting. `rt.connected` tells you whether the socket is up.
-- `JobStatusEvent` has `request_id`, `status` (`processing`, `in_progress`, `done`), `progress` (0-100),
+- `JobStatusEvent` has `request_id`, `status` (`processing`, repeated while `progress` grows, then `done`), `progress` (0-100),
   `preview` (base64 data URI, image jobs) and `result_url` (only on `done`).
 - `ws_url` / `app_key` (env `DEAPI_WS_URL` / `DEAPI_WS_APP_KEY`) are only needed for non-production
   environments. Without the extra, connecting raises an `ImportError` telling you to install

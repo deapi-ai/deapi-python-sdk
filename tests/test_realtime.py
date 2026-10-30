@@ -359,8 +359,8 @@ class TestWait:
     ) -> None:
         def on_call(n: int) -> None:
             if n == 0:
-                push(server, "req-1", "in_progress", "10.00")
-                push(server, "req-1", "in_progress", "55.5")
+                push(server, "req-1", "processing", "10.00")
+                push(server, "req-1", "processing", "55.5")
                 push(server, "req-1", "done", "100.00", result_url=EVENT_URL)
 
         route = Statuses(processing, done, on_call=on_call)
@@ -369,8 +369,8 @@ class TestWait:
         with make_rt(client_v2, server) as rt:
             result = rt.wait("req-1", on_progress=seen.append, poll_interval=30)
         assert [(e.status, e.progress) for e in seen] == [
-            (JobStatus.IN_PROGRESS, 10.0),
-            (JobStatus.IN_PROGRESS, 55.5),
+            (JobStatus.PROCESSING, 10.0),
+            (JobStatus.PROCESSING, 55.5),
             (JobStatus.DONE, 100.0),
         ]
         assert result.status == JobStatus.DONE
@@ -406,9 +406,9 @@ class TestWait:
     ) -> None:
         def on_call(n: int) -> None:
             if n == 0:
-                push(server, "req-other", "in_progress", "20.00")
+                push(server, "req-other", "processing", "20.00")
                 push(server, "req-other", "done")
-                push(server, "req-1", "in_progress", "30.00")
+                push(server, "req-1", "processing", "30.00")
                 push(server, "req-1", "done")
 
         route = Statuses(processing, done, on_call=on_call)
@@ -466,7 +466,7 @@ class TestWait:
     def test_on_progress_exception_propagates(
         self, client_v2: DeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
-        route = Statuses(processing, on_call=lambda n: push(server, "req-1", "in_progress", "5") if n == 0 else None)
+        route = Statuses(processing, on_call=lambda n: push(server, "req-1", "processing", "5") if n == 0 else None)
         api.get(status_url("req-1")).mock(side_effect=route)
 
         def boom(event: JobStatusEvent) -> None:
@@ -635,7 +635,7 @@ class TestEvents:
             push(server, "req-1", "processing")
             server.push_event(CHANNEL, protocol.STATUS_EVENT, {"status": "done"})  # no request_id
             server.push_event(CHANNEL, protocol.STATUS_EVENT, "garbage")
-            push(server, "req-2", "in_progress", "12.5")
+            push(server, "req-2", "processing", "12.5")
             push(server, "req-1", "done")
             server.wait_for(lambda: len(received) >= 3)
             rt.close()
@@ -643,7 +643,7 @@ class TestEvents:
         assert finished.is_set()
         assert [(e.request_id, e.status) for e in received] == [
             ("req-1", JobStatus.PROCESSING),
-            ("req-2", JobStatus.IN_PROGRESS),
+            ("req-2", JobStatus.PROCESSING),
             ("req-1", JobStatus.DONE),
         ]
         assert received[1].progress == 12.5
@@ -868,8 +868,8 @@ class TestAsyncWait:
     ) -> None:
         def on_call(n: int) -> None:
             if n == 0:
-                push(server, "req-1", "in_progress", "10.00")
-                push(server, "req-1", "in_progress", "55.5")
+                push(server, "req-1", "processing", "10.00")
+                push(server, "req-1", "processing", "55.5")
                 push(server, "req-1", "done", "100.00", result_url=EVENT_URL)
 
         route = Statuses(processing, done, on_call=on_call)
@@ -911,7 +911,7 @@ class TestAsyncWait:
     ) -> None:
         def on_call(n: int) -> None:
             if n == 0:
-                push(server, "req-other", "in_progress", "20.00")
+                push(server, "req-other", "processing", "20.00")
                 push(server, "req-other", "done")
                 push(server, "req-1", "done")
 
@@ -955,7 +955,7 @@ class TestAsyncWait:
     async def test_on_progress_exception_propagates(
         self, async_client_v2: AsyncDeapiClient, server: FakePusherServer, auth: AuthEndpoint, api: respx.MockRouter
     ) -> None:
-        route = Statuses(processing, on_call=lambda n: push(server, "req-1", "in_progress", "5") if n == 0 else None)
+        route = Statuses(processing, on_call=lambda n: push(server, "req-1", "processing", "5") if n == 0 else None)
         api.get(status_url("req-1")).mock(side_effect=route)
 
         async def boom(event: JobStatusEvent) -> None:
@@ -1066,14 +1066,14 @@ class TestAsyncEvents:
             await until(lambda: bool(rt._engine._sinks))
             await asyncio.to_thread(push, server, "req-1", "processing")
             await asyncio.to_thread(server.push_event, CHANNEL, protocol.STATUS_EVENT, {"status": "done"})
-            await asyncio.to_thread(push, server, "req-2", "in_progress", "12.5")
+            await asyncio.to_thread(push, server, "req-2", "processing", "12.5")
             await asyncio.to_thread(push, server, "req-1", "done")
             await until(lambda: len(received) >= 3)
             await rt.close()
             await asyncio.wait_for(task, 5)
         assert [(e.request_id, e.status) for e in received] == [
             ("req-1", JobStatus.PROCESSING),
-            ("req-2", JobStatus.IN_PROGRESS),
+            ("req-2", JobStatus.PROCESSING),
             ("req-1", JobStatus.DONE),
         ]
         assert received[1].progress == 12.5
