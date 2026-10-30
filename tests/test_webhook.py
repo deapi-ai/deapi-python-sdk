@@ -194,6 +194,53 @@ class TestConstructEvent:
         assert event.data.processing_time_ms is None
 
 
+class TestEventFields:
+    def _construct(self, data: dict[str, object], event: str) -> WebhookEvent:
+        envelope = {"event": event, "delivery_id": "d-1", "timestamp": "2026-01-01T00:00:00+00:00", "data": data}
+        payload = json.dumps(envelope)
+        ts = str(int(time.time()))
+        return construct_event(payload=payload, signature=_make_signature(payload, ts), timestamp=ts, secret=SECRET)
+
+    def test_failed_event_fields_are_typed(self) -> None:
+        event = self._construct(
+            {
+                "job_request_id": "job-1",
+                "status": "error",
+                "previous_status": "processing",
+                "job_type": "txt2img",
+                "failed_at": "2026-01-01T00:00:05+00:00",
+                "error_code": "WORKER_TIMEOUT",
+                "error_reason": "TIMEOUT",
+                "retryable": True,
+                "refunded": True,
+            },
+            "job.failed",
+        )
+        data = event.data
+        assert event.type == "job.failed"
+        assert data.status == "error"
+        assert data.failed_at == "2026-01-01T00:00:05+00:00"
+        assert data.error_code == "WORKER_TIMEOUT"
+        assert data.error_reason == "TIMEOUT"
+        assert data.retryable is True
+        assert data.refunded is True
+        assert data.model_extra == {}
+
+    def test_processing_event_started_at(self) -> None:
+        event = self._construct(
+            {"job_request_id": "job-1", "status": "processing", "previous_status": "pending",
+             "started_at": "2026-01-01T00:00:01+00:00"},
+            "job.processing",
+        )
+        assert event.data.started_at == "2026-01-01T00:00:01+00:00"
+        assert event.data.error_code is None
+        assert event.data.retryable is None
+
+    def test_unknown_fields_still_kept(self) -> None:
+        event = self._construct({"job_request_id": "job-1", "status": "done", "new_field": 1}, "job.completed")
+        assert event.data.model_extra == {"new_field": 1}
+
+
 class TestInvalidSignatureError:
     def test_is_deapi_error(self) -> None:
         from deapi_sdk._exceptions import DeapiError

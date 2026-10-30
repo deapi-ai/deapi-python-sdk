@@ -13,14 +13,29 @@ from deapi_sdk._exceptions import DeapiError
 
 
 class WebhookEventData(BaseModel):
-    """Data payload from a webhook event."""
+    """Data payload from a webhook event.
+
+    ``job.processing`` sets ``started_at``; ``job.completed`` sets ``completed_at``,
+    ``result_url`` and ``processing_time_ms``; ``job.failed`` sets ``failed_at`` and
+    the failure fields. ``error_reason`` is an open list: treat a value you do not
+    recognise as ``PROCESSING_FAILED``, and branch on ``retryable`` to decide
+    whether to resubmit.
+    """
+
     job_request_id: str
     status: str
     previous_status: str | None = None
     job_type: str | None = None
+    started_at: str | None = None
     completed_at: str | None = None
     result_url: str | None = None
     processing_time_ms: int | None = None
+    # Failure details (job.failed only)
+    failed_at: str | None = None
+    error_code: str | None = None  # WORKER_TIMEOUT | WORKER_ERROR | PROCESSING_ERROR
+    error_reason: str | None = None  # e.g. SOURCE_PRIVATE, TIMEOUT, CAPACITY_UNAVAILABLE (open list)
+    retryable: bool | None = None
+    refunded: bool | None = None
 
     model_config = {"extra": "allow"}
 

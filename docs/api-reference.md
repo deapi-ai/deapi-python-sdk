@@ -776,15 +776,25 @@ class WebhookEvent(BaseModel):
     data: WebhookEventData
     type: str                       # property, alias for event
 
-class WebhookEventData(BaseModel):
+class WebhookEventData(BaseModel):     # unknown extra fields are kept (model_extra)
     job_request_id: str
-    status: str
+    status: str                         # "processing" | "done" | "error"
     previous_status: str | None
     job_type: str | None
-    completed_at: str | None
-    result_url: str | None
-    processing_time_ms: int | None
+    started_at: str | None              # job.processing
+    completed_at: str | None            # job.completed
+    result_url: str | None              # job.completed
+    processing_time_ms: int | None      # job.completed
+    failed_at: str | None               # job.failed
+    error_code: str | None              # job.failed: WORKER_TIMEOUT | WORKER_ERROR | PROCESSING_ERROR
+    error_reason: str | None            # job.failed: open list, e.g. SOURCE_PRIVATE, TIMEOUT
+    retryable: bool | None              # job.failed: resubmitting the same request could succeed
+    refunded: bool | None               # job.failed: the upfront charge was returned
 ```
+
+`construct_event()` rejects bad signatures and timestamps outside `tolerance`, but an identical
+delivery replayed within that window still verifies. Deduplicate on `event.delivery_id` (e.g. store
+it with a TTL longer than `tolerance`) so a retried or replayed delivery is processed once.
 
 ---
 

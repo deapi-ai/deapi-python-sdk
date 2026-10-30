@@ -516,13 +516,23 @@ async def handle_webhook(request: Request):
     except InvalidSignatureError:
         return {"error": "Invalid signature"}, 403
 
+    if already_processed(event.delivery_id):  # your own store, e.g. a set or a cache with a TTL
+        return {"ok": True}
+
     if event.type == "job.completed":
         print(f"Job {event.data.job_request_id} completed: {event.data.result_url}")
     elif event.type == "job.failed":
-        print(f"Job {event.data.job_request_id} failed")
+        data = event.data
+        print(f"Job {data.job_request_id} failed: {data.error_code} / {data.error_reason}, retryable={data.retryable}")
 
     return {"ok": True}
 ```
+
+- Pass the **raw** request body to `construct_event()`; re-serialised JSON will not match the signature.
+- A delivery replayed within `tolerance` still verifies, so deduplicate on `event.delivery_id`.
+- `job.failed` carries `error_code`, `error_reason` (an open list: treat unknown values as
+  `PROCESSING_FAILED`), `retryable` and `refunded`. Failed jobs are announced only by webhook (and the
+  job status endpoint), never over the real-time WebSocket.
 
 ## Upgrading to 0.4.0
 
