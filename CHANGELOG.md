@@ -3,6 +3,18 @@
 All notable changes to this project are documented in this file.
 Versions follow [Semantic Versioning](https://semver.org/) (pre-1.0: minor versions may contain breaking changes).
 
+## [0.6.1] - 2026-11-19
+
+### Added
+
+- Published on PyPI: `pip install deapi-sdk` (`pip install "deapi-sdk[ws]"` for real-time status).
+  Releases are uploaded by GitHub Actions when a GitHub Release is published.
+
+### Changed
+
+- README links are absolute, so they also work on the PyPI project page.
+- The product name is spelled deAPI throughout the docs and docstrings.
+
 ## [0.6.0] - 2026-11-19
 
 ### Added

@@ -29,19 +29,18 @@ Generate images, videos, audio, transcriptions, embeddings, and more — all thr
 
 ## Installation
 
-The SDK is **not on PyPI yet**. Install it straight from GitHub:
-
 ```bash
-pip install git+https://github.com/deapi-ai/deapi-python-sdk.git
-# or pin a branch, tag or commit:
-pip install git+https://github.com/deapi-ai/deapi-python-sdk.git@main
+pip install deapi-sdk
 ```
 
 Real-time job updates over WebSocket need the optional `ws` extra (installs `websockets`):
 
 ```bash
-pip install "deapi-sdk[ws] @ git+https://github.com/deapi-ai/deapi-python-sdk.git"
+pip install "deapi-sdk[ws]"
 ```
+
+The latest unreleased code can be installed straight from GitHub:
+`pip install git+https://github.com/deapi-ai/deapi-python-sdk.git@main`.
 
 > `pip install deapi` installs an **unrelated** package. Do not use it.
 
@@ -432,7 +431,7 @@ async with AsyncDeapiClient() as client:
   discovery call raises the usual API exception (for example `AuthenticationError`); an unusable response
   raises `RealtimeError`.
 
-See [`examples/realtime_status.py`](examples/realtime_status.py).
+See [`examples/realtime_status.py`](https://github.com/deapi-ai/deapi-python-sdk/blob/main/examples/realtime_status.py).
 
 ## Error Handling
 
@@ -580,23 +579,23 @@ async def handle_webhook(request: Request):
 
 ## API Reference
 
-See [docs/api-reference.md](docs/api-reference.md) for method signatures, parameters and return
+See [docs/api-reference.md](https://github.com/deapi-ai/deapi-python-sdk/blob/main/docs/api-reference.md) for method signatures, parameters and return
 types, and [docs.deapi.ai](https://docs.deapi.ai) for the HTTP API.
 
 ## Examples
 
-The [`examples/`](examples/) directory contains runnable scripts:
+The [`examples/`](https://github.com/deapi-ai/deapi-python-sdk/tree/main/examples) directory contains runnable scripts:
 
 | File | Description |
 |------|-------------|
-| [`basic_image.py`](examples/basic_image.py) | Image generation, transformation, upscale |
-| [`async_batch.py`](examples/async_batch.py) | Concurrent async job submission |
-| [`transcription.py`](examples/transcription.py) | Transcription with JSON and plain-text transcripts |
-| [`tts_and_audio.py`](examples/tts_and_audio.py) | Text-to-speech and music generation |
-| [`video_generation.py`](examples/video_generation.py) | Text-to-video and image-to-video |
-| [`realtime_status.py`](examples/realtime_status.py) | Live job progress over WebSocket |
-| [`webhook_server.py`](examples/webhook_server.py) | Flask webhook receiver with signature verification |
-| [`error_handling.py`](examples/error_handling.py) | Error handling patterns and best practices |
+| [`basic_image.py`](https://github.com/deapi-ai/deapi-python-sdk/blob/main/examples/basic_image.py) | Image generation, transformation, upscale |
+| [`async_batch.py`](https://github.com/deapi-ai/deapi-python-sdk/blob/main/examples/async_batch.py) | Concurrent async job submission |
+| [`transcription.py`](https://github.com/deapi-ai/deapi-python-sdk/blob/main/examples/transcription.py) | Transcription with JSON and plain-text transcripts |
+| [`tts_and_audio.py`](https://github.com/deapi-ai/deapi-python-sdk/blob/main/examples/tts_and_audio.py) | Text-to-speech and music generation |
+| [`video_generation.py`](https://github.com/deapi-ai/deapi-python-sdk/blob/main/examples/video_generation.py) | Text-to-video and image-to-video |
+| [`realtime_status.py`](https://github.com/deapi-ai/deapi-python-sdk/blob/main/examples/realtime_status.py) | Live job progress over WebSocket |
+| [`webhook_server.py`](https://github.com/deapi-ai/deapi-python-sdk/blob/main/examples/webhook_server.py) | Flask webhook receiver with signature verification |
+| [`error_handling.py`](https://github.com/deapi-ai/deapi-python-sdk/blob/main/examples/error_handling.py) | Error handling patterns and best practices |
 
 ## Requirements
 
@@ -607,4 +606,4 @@ The [`examples/`](examples/) directory contains runnable scripts:
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](https://github.com/deapi-ai/deapi-python-sdk/blob/main/LICENSE) for details.
