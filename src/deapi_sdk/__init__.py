@@ -31,6 +31,7 @@ from deapi_sdk._exceptions import (
 )
 from deapi_sdk._polling import AsyncJob, AsyncJobs, Job, Jobs
 from deapi_sdk._realtime import AsyncRealtime, Realtime
+from deapi_sdk._realtime._discovery import parse_websocket_config
 from deapi_sdk._types import InferenceType, JobStatus
 from deapi_sdk._version import __version__
 from deapi_sdk.transcript import (
@@ -50,6 +51,7 @@ from deapi_sdk.types.common import (
     PriceResult,
 )
 from deapi_sdk.types.video import VideoDescription, VideoEvent, parse_video_description
+from deapi_sdk.types.websocket import WebSocketConfig, WebSocketConnection
 from deapi_sdk.webhook import (
     InvalidSignatureError,
     JobPrice,
@@ -182,6 +184,16 @@ class DeapiClient:
         resp = self._http_client.get(url)
         return Balance.model_validate(resp.get("data", resp))
 
+    def websocket_config(self) -> WebSocketConfig:
+        """Realtime WebSocket parameters of this account (``GET /websocket``).
+
+        Contains the Client ID, channel, event name, authorization endpoint and the
+        connection details (host, port, TLS, public app key). No secrets.
+        :meth:`realtime` uses it automatically when parameters are not supplied.
+        """
+        resp = self._http_client.get(self._http_client._resolve_endpoint("websocket"))
+        return parse_websocket_config(resp)
+
     def realtime(
         self,
         client_id: str | int | None = None,
@@ -192,10 +204,12 @@ class DeapiClient:
     ) -> Realtime:
         """Real-time job status updates over WebSocket (needs ``pip install "deapi-sdk[ws]"``).
 
-        ``client_id`` is the Client ID shown in your deAPI dashboard; when omitted,
-        ``DEAPI_CLIENT_ID`` is used. Servers acting for many users should always
-        pass it explicitly. ``ws_url`` (``DEAPI_WS_URL``) and ``app_key``
-        (``DEAPI_WS_APP_KEY``) default to the production server.
+        Every parameter is optional. Each one is taken from the argument, else from its
+        environment variable (``DEAPI_CLIENT_ID``, ``DEAPI_WS_URL``, ``DEAPI_WS_APP_KEY``),
+        else from ``GET /websocket``, which the SDK calls once at connect time when
+        something is still missing (see :meth:`websocket_config`). With all three
+        set, no extra request is made. ``client_id`` is the Client ID shown in your
+        deAPI dashboard; servers acting for many users should pass it explicitly.
 
         The connection opens on ``with`` / ``connect()``. It is closed together
         with this client.
@@ -281,6 +295,16 @@ class AsyncDeapiClient:
         resp = await self._http_client.get(url)
         return Balance.model_validate(resp.get("data", resp))
 
+    async def websocket_config(self) -> WebSocketConfig:
+        """Realtime WebSocket parameters of this account (``GET /websocket``).
+
+        Contains the Client ID, channel, event name, authorization endpoint and the
+        connection details (host, port, TLS, public app key). No secrets.
+        :meth:`realtime` uses it automatically when parameters are not supplied.
+        """
+        resp = await self._http_client.get(self._http_client._resolve_endpoint("websocket"))
+        return parse_websocket_config(resp)
+
     def realtime(
         self,
         client_id: str | int | None = None,
@@ -291,10 +315,12 @@ class AsyncDeapiClient:
     ) -> AsyncRealtime:
         """Real-time job status updates over WebSocket (needs ``pip install "deapi-sdk[ws]"``).
 
-        ``client_id`` is the Client ID shown in your deAPI dashboard; when omitted,
-        ``DEAPI_CLIENT_ID`` is used. Servers acting for many users should always
-        pass it explicitly. ``ws_url`` (``DEAPI_WS_URL``) and ``app_key``
-        (``DEAPI_WS_APP_KEY``) default to the production server.
+        Every parameter is optional. Each one is taken from the argument, else from its
+        environment variable (``DEAPI_CLIENT_ID``, ``DEAPI_WS_URL``, ``DEAPI_WS_APP_KEY``),
+        else from ``GET /websocket``, which the SDK calls once at connect time when
+        something is still missing (see :meth:`websocket_config`). With all three
+        set, no extra request is made. ``client_id`` is the Client ID shown in your
+        deAPI dashboard; servers acting for many users should pass it explicitly.
 
         The connection opens on ``async with`` /
         ``await connect()``. It is closed together
@@ -341,6 +367,8 @@ __all__ = [
     "ModelInfo",
     "ModelsResponse",
     "PriceResult",
+    "WebSocketConfig",
+    "WebSocketConnection",
     # Results
     "Transcript",
     "TranscriptSegment",

@@ -102,9 +102,9 @@ client = DeapiClient(
 | `base_url` | `DEAPI_BASE_URL` | `https://api.deapi.ai` |
 | `api_version` | `DEAPI_API_VERSION` | `v2` |
 | `fill_model_defaults` | `DEAPI_FILL_MODEL_DEFAULTS` (`0` disables) | on |
-| `client_id` (`client.realtime()`) | `DEAPI_CLIENT_ID` | none |
-| `ws_url` (`client.realtime()`) | `DEAPI_WS_URL` | `wss://soketi.deapi.ai` |
-| `app_key` (`client.realtime()`) | `DEAPI_WS_APP_KEY` | public app key |
+| `client_id` (`client.realtime()`) | `DEAPI_CLIENT_ID` | discovered from the API |
+| `ws_url` (`client.realtime()`) | `DEAPI_WS_URL` | discovered from the API |
+| `app_key` (`client.realtime()`) | `DEAPI_WS_APP_KEY` | discovered from the API |
 | `timeout` | — | `30.0` |
 | `max_retries` | — | `3` |
 | `max_retry_after` | — | `60.0` (cap on a 429 `Retry-After` sleep, in seconds) |
@@ -386,7 +386,7 @@ Instead of polling, follow your jobs live over one WebSocket connection. Install
 from deapi_sdk import DeapiClient
 
 with DeapiClient(api_key="sk-dp-<id>-<secret>") as client:
-    with client.realtime(client_id="your-client-id") as rt:
+    with client.realtime() as rt:      # no other settings needed: the SDK asks the API where to connect
         job = client.images.generate(prompt="a cat in space", model="Flux1schnell", width=1024, height=1024)
 
         result = rt.wait(job, on_progress=lambda e: print(e.status, e.progress))   # same JobResult as job.wait()
@@ -400,16 +400,20 @@ Async works the same way:
 
 ```python
 async with AsyncDeapiClient() as client:
-    async with client.realtime(client_id="your-client-id") as rt:
+    async with client.realtime() as rt:
         job = await client.images.generate(prompt="a cat in space", model="Flux1schnell", width=1024, height=1024)
         result = await rt.wait(job, on_progress=callback)   # plain function or async function
         async for event in rt.events():
             ...
 ```
 
-- **`client_id`** is the "Client ID" shown in your deAPI dashboard. It falls back to `DEAPI_CLIENT_ID`
-  only when you do not pass it; an explicit argument always wins. Servers handling many users should
-  pass it explicitly per user. A `client_id` that does not belong to the API key raises `RealtimeError`.
+- **All settings are optional.** `client_id`, `ws_url` and `app_key` are each taken from the argument,
+  else from `DEAPI_CLIENT_ID` / `DEAPI_WS_URL` / `DEAPI_WS_APP_KEY`, else from the account's
+  `GET /websocket` response (`client.websocket_config()`). The SDK calls that endpoint once, on
+  `connect()` / `with` (never in the constructor), and only when something is still missing; with all three
+  set there is no extra request. `rt.client_id` is `None` until then if you did not pass one.
+  `client_id` is the "Client ID" shown in your deAPI dashboard; servers handling many users should pass it
+  explicitly per user. A `client_id` that does not belong to the API key raises `RealtimeError`.
 - **`rt.wait(job_or_request_id)`** accepts a `Job` or a request id. WebSocket events drive progress and
   completion; on `done` the SDK fetches the final `JobResult` over HTTP (fresh signed `result_url`, all
   fields).
@@ -423,9 +427,9 @@ async with AsyncDeapiClient() as client:
   reconnecting. `rt.connected` tells you whether the socket is up.
 - `JobStatusEvent` has `request_id`, `status` (`processing`, repeated while `progress` grows, then `done`), `progress` (0-100),
   `preview` (base64 data URI, image jobs) and `result_url` (only on `done`).
-- `ws_url` / `app_key` (env `DEAPI_WS_URL` / `DEAPI_WS_APP_KEY`) are only needed for non-production
-  environments. Without the extra, connecting raises an `ImportError` telling you to install
-  `deapi-sdk[ws]`.
+- Without the extra, connecting raises an `ImportError` telling you to install `deapi-sdk[ws]`. A failed
+  discovery call raises the usual API exception (for example `AuthenticationError`); an unusable response
+  raises `RealtimeError`.
 
 See [`examples/realtime_status.py`](examples/realtime_status.py).
 

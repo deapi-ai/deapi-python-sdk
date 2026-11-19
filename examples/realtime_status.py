@@ -8,7 +8,8 @@ Requires the optional extra:
 
 Usage:
     export DEAPI_API_KEY="sk-dp-<id>-<secret>"
-    export DEAPI_CLIENT_ID="your-client-id"      # the "Client ID" shown in your deAPI dashboard
+    # Optional: the SDK fetches the connection settings (client id, WebSocket host, app key) from the API.
+    # export DEAPI_CLIENT_ID="your-client-id"    # the "Client ID" shown in your deAPI dashboard
     python examples/realtime_status.py
     python examples/realtime_status.py --watch
 """
@@ -25,7 +26,7 @@ def print_progress(event: JobStatusEvent) -> None:
 
 def main() -> None:
     # Open the connection BEFORE submitting jobs so no event is missed.
-    # client_id falls back to DEAPI_CLIENT_ID.
+    # No settings needed: they are fetched from the API on connect (override via client_id= or DEAPI_CLIENT_ID).
     with DeapiClient() as client, client.realtime() as rt:
         if "--watch" in sys.argv:
             print("Watching job events (Ctrl+C to stop)...")

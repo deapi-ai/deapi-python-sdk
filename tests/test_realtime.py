@@ -34,6 +34,10 @@ APP_KEY = "test-app-key"
 CLIENT_ID = "test-client-1"
 CHANNEL = f"private-client.{CLIENT_ID}"
 AUTH_URL = f"{TEST_BASE_URL}/broadcasting/auth"
+WEBSOCKET_URL = f"{TEST_BASE_URL}/api/v2/websocket"
+DISCOVERED_ID = "00000000-0000-4000-8000-000000000000"
+DISCOVERED_CHANNEL = f"private-client.{DISCOVERED_ID}"
+DISCOVERED_AUTH_URL = "https://api.example.test/broadcasting/auth"
 REST_URL = "https://rest.test/final.png"
 EVENT_URL = "https://event.test/stale.png"
 
@@ -248,14 +252,15 @@ class TestSettings:
             assert rt.client_id == "from-env"
         assert server.subscriptions[0][0] == "private-client.from-env"
 
-    def test_missing_client_id(self, client: DeapiClient) -> None:
-        with pytest.raises(ValueError, match="DEAPI_CLIENT_ID"):
-            client.realtime()
+    def test_no_params_constructs_without_io(self, client: DeapiClient, api: respx.MockRouter) -> None:
+        rt = client.realtime()
+        assert rt.client_id is None
+        assert "client_id=None" in repr(rt)
+        assert not api.calls
 
     def test_blank_env_client_id_is_missing(self, client: DeapiClient, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("DEAPI_CLIENT_ID", "   ")
-        with pytest.raises(ValueError, match="DEAPI_CLIENT_ID"):
-            client.realtime()
+        assert client.realtime().client_id is None
 
     def test_int_client_id(
         self, client: DeapiClient, server: FakePusherServer, auth: AuthEndpoint
@@ -790,9 +795,8 @@ class TestAsyncConnect:
         await async_client.close()
         assert rt.connected is False
 
-    async def test_missing_client_id(self, async_client: AsyncDeapiClient) -> None:
-        with pytest.raises(ValueError, match="DEAPI_CLIENT_ID"):
-            async_client.realtime()
+    async def test_no_params_constructs_without_io(self, async_client: AsyncDeapiClient) -> None:
+        assert async_client.realtime().client_id is None
 
     async def test_env_client_id_and_int(
         self,
@@ -1124,3 +1128,267 @@ class TestAsyncEvents:
         await rt.connect()
         await rt.close()
         assert [e async for e in rt.events()] == []
+
+
+# =========================================================================== discovery
+
+
+def websocket_body(server: FakePusherServer | None = None, **overrides: Any) -> dict[str, Any]:
+    connection: dict[str, Any] = {
+        "protocol": "pusher",
+        "key": APP_KEY,
+        "host": "ws.example.test",
+        "port": 443,
+        "tls": True,
+    }
+    if server is not None:
+        connection.update(host="127.0.0.1", port=server.port, tls=False)
+    data: dict[str, Any] = {
+        "client_id": DISCOVERED_ID,
+        "channel": DISCOVERED_CHANNEL,
+        "event": "request.status.updated",
+        "auth_endpoint": DISCOVERED_AUTH_URL,
+        "connection": connection,
+    }
+    data.update(overrides)
+    return {"data": data}
+
+
+@pytest.fixture
+def discovery(api: respx.MockRouter, server: FakePusherServer) -> respx.Route:
+    return api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(200, json=websocket_body(server)))
+
+
+@pytest.fixture
+def discovered_auth(api: respx.MockRouter) -> AuthEndpoint:
+    endpoint = AuthEndpoint()
+    api.post(DISCOVERED_AUTH_URL).mock(side_effect=endpoint)
+    return endpoint
+
+
+class TestDiscoverySync:
+    def test_no_params_uses_discovery(
+        self, client: DeapiClient, server: FakePusherServer, discovery: respx.Route, discovered_auth: AuthEndpoint
+    ) -> None:
+        rt = client.realtime(connect_timeout=2)
+        assert rt.client_id is None
+        assert discovery.call_count == 0
+        with rt:
+            assert rt.client_id == DISCOVERED_ID
+            assert discovery.call_count == 1
+            assert discovery.calls[0].request.headers["authorization"] == f"Bearer {TEST_API_KEY}"
+        assert server.last_path == f"/app/{APP_KEY}"
+        assert server.subscriptions[0][0] == DISCOVERED_CHANNEL
+        assert discovered_auth.bodies[0]["channel_name"] == DISCOVERED_CHANNEL
+
+    def test_all_params_skip_discovery(
+        self, client: DeapiClient, server: FakePusherServer, api: respx.MockRouter, auth: AuthEndpoint
+    ) -> None:
+        route = api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(500))
+        with make_rt(client, server):
+            pass
+        assert route.call_count == 0
+
+    def test_env_params_skip_discovery(
+        self,
+        client: DeapiClient,
+        server: FakePusherServer,
+        api: respx.MockRouter,
+        auth: AuthEndpoint,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        route = api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(500))
+        monkeypatch.setenv("DEAPI_CLIENT_ID", CLIENT_ID)
+        monkeypatch.setenv("DEAPI_WS_URL", server.url)
+        monkeypatch.setenv("DEAPI_WS_APP_KEY", APP_KEY)
+        with client.realtime(connect_timeout=2):
+            pass
+        assert route.call_count == 0
+
+    def test_partial_params_fill_only_missing(
+        self, client: DeapiClient, server: FakePusherServer, discovery: respx.Route, discovered_auth: AuthEndpoint
+    ) -> None:
+        # explicit client_id and app_key win; ws_url and auth_endpoint come from discovery
+        with client.realtime(client_id="mine", app_key=APP_KEY, connect_timeout=2) as rt:
+            assert rt.client_id == "mine"
+        assert discovery.call_count == 1
+        assert server.subscriptions[0][0] == "private-client.mine"
+        assert discovered_auth.bodies[0]["channel_name"] == "private-client.mine"
+
+    def test_explicit_ws_url_and_key_win_over_discovered(
+        self, client: DeapiClient, server: FakePusherServer, api: respx.MockRouter, discovered_auth: AuthEndpoint
+    ) -> None:
+        body = websocket_body(server)
+        body["data"]["connection"].update(host="unreachable.example.test", port=1, key="other-key")
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(200, json=body))
+        with client.realtime(ws_url=server.url, app_key=APP_KEY, connect_timeout=2) as rt:
+            assert rt.client_id == DISCOVERED_ID
+        assert server.last_path == f"/app/{APP_KEY}"
+
+    def test_reconnect_does_not_refetch(
+        self, client: DeapiClient, server: FakePusherServer, discovery: respx.Route, discovered_auth: AuthEndpoint
+    ) -> None:
+        with client.realtime(connect_timeout=2) as rt:
+            server.drop_all()
+            connected_again(server, rt)
+        assert discovery.call_count == 1
+
+    def test_missing_auth_endpoint_falls_back(
+        self, client: DeapiClient, server: FakePusherServer, api: respx.MockRouter, auth: AuthEndpoint
+    ) -> None:
+        body = websocket_body(server)
+        del body["data"]["auth_endpoint"]
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(200, json=body))
+        with client.realtime(connect_timeout=2):
+            pass
+        assert auth.bodies[0]["channel_name"] == DISCOVERED_CHANNEL
+
+    def test_http_error_propagates_and_retry_works(
+        self, client: DeapiClient, server: FakePusherServer, api: respx.MockRouter, discovered_auth: AuthEndpoint
+    ) -> None:
+        route = api.get(WEBSOCKET_URL).mock(
+            side_effect=[
+                httpx.Response(401, json={"message": "Unauthenticated."}),
+                httpx.Response(200, json=websocket_body(server)),
+            ]
+        )
+        rt = client.realtime(connect_timeout=2)
+        with pytest.raises(AuthenticationError):
+            rt.connect()
+        assert rt.connected is False
+        with rt:
+            assert rt.client_id == DISCOVERED_ID
+        assert route.call_count == 2
+
+    @pytest.mark.parametrize(
+        ("mutate", "match"),
+        [
+            (lambda d: d.pop("client_id"), "client_id"),
+            (lambda d: d.pop("connection"), "connection"),
+            (lambda d: d["connection"].update(protocol="mqtt"), "protocol"),
+            (lambda d: d.update(event="something.else"), "event"),
+            (lambda d: d.update(auth_endpoint="ftp://x"), "auth_endpoint"),
+            (lambda d: d["connection"].update(host=""), "host"),
+        ],
+    )
+    def test_malformed_response(
+        self, client: DeapiClient, api: respx.MockRouter, mutate: Callable[[dict[str, Any]], Any], match: str
+    ) -> None:
+        body = websocket_body()
+        mutate(body["data"])
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(200, json=body))
+        with pytest.raises(RealtimeError, match=match):
+            client.realtime(connect_timeout=2).connect()
+
+    def test_non_object_response(self, client: DeapiClient, api: respx.MockRouter) -> None:
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(200, json=["nope"]))
+        with pytest.raises(RealtimeError):
+            client.realtime(connect_timeout=2).connect()
+
+    def test_server_channel_used_when_client_id_discovered(
+        self, client: DeapiClient, server: FakePusherServer, api: respx.MockRouter, discovered_auth: AuthEndpoint
+    ) -> None:
+        body = websocket_body(server, channel="private-client.custom")
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(200, json=body))
+        with client.realtime(connect_timeout=2):
+            pass
+        assert server.subscriptions[0][0] == "private-client.custom"
+
+
+class TestDiscoveryAsync:
+    async def test_no_params_uses_discovery(
+        self,
+        async_client: AsyncDeapiClient,
+        server: FakePusherServer,
+        discovery: respx.Route,
+        discovered_auth: AuthEndpoint,
+    ) -> None:
+        rt = async_client.realtime(connect_timeout=2)
+        assert rt.client_id is None
+        assert discovery.call_count == 0
+        async with rt:
+            assert rt.client_id == DISCOVERED_ID
+            assert discovery.call_count == 1
+        assert server.subscriptions[0][0] == DISCOVERED_CHANNEL
+        assert discovered_auth.bodies[0]["channel_name"] == DISCOVERED_CHANNEL
+
+    async def test_all_params_skip_discovery(
+        self, async_client: AsyncDeapiClient, server: FakePusherServer, api: respx.MockRouter, auth: AuthEndpoint
+    ) -> None:
+        route = api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(500))
+        async with make_async_rt(async_client, server):
+            pass
+        assert route.call_count == 0
+
+    async def test_partial_params(
+        self,
+        async_client: AsyncDeapiClient,
+        server: FakePusherServer,
+        discovery: respx.Route,
+        discovered_auth: AuthEndpoint,
+    ) -> None:
+        async with async_client.realtime(client_id="mine", app_key=APP_KEY, connect_timeout=2) as rt:
+            assert rt.client_id == "mine"
+        assert discovery.call_count == 1
+        assert server.subscriptions[0][0] == "private-client.mine"
+
+    async def test_http_error_propagates(self, async_client: AsyncDeapiClient, api: respx.MockRouter) -> None:
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(401, json={"message": "Unauthenticated."}))
+        with pytest.raises(AuthenticationError):
+            await async_client.realtime(connect_timeout=2).connect()
+
+    async def test_malformed_response(self, async_client: AsyncDeapiClient, api: respx.MockRouter) -> None:
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(200, json={"data": {"client_id": "x"}}))
+        with pytest.raises(RealtimeError, match="connection"):
+            await async_client.realtime(connect_timeout=2).connect()
+
+
+class TestWebsocketConfigMethod:
+    def test_sync(self, client: DeapiClient, api: respx.MockRouter) -> None:
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(200, json=websocket_body()))
+        cfg = client.websocket_config()
+        assert cfg.client_id == DISCOVERED_ID
+        assert cfg.channel == DISCOVERED_CHANNEL
+        assert cfg.event == "request.status.updated"
+        assert cfg.auth_endpoint == DISCOVERED_AUTH_URL
+        assert cfg.connection.key == APP_KEY
+        assert cfg.connection.url == "wss://ws.example.test"
+
+    async def test_async(self, async_client: AsyncDeapiClient, api: respx.MockRouter) -> None:
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(200, json=websocket_body()))
+        cfg = await async_client.websocket_config()
+        assert cfg.client_id == DISCOVERED_ID
+
+    def test_malformed(self, client: DeapiClient, api: respx.MockRouter) -> None:
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(200, json={"data": {}}))
+        with pytest.raises(RealtimeError):
+            client.websocket_config()
+
+    def test_http_error(self, client: DeapiClient, api: respx.MockRouter) -> None:
+        api.get(WEBSOCKET_URL).mock(return_value=httpx.Response(401, json={"message": "Unauthenticated."}))
+        with pytest.raises(AuthenticationError):
+            client.websocket_config()
+
+    def test_exported(self) -> None:
+        import deapi_sdk
+        from deapi_sdk import types
+
+        assert deapi_sdk.WebSocketConfig is types.WebSocketConfig
+
+
+@pytest.mark.parametrize(
+    ("tls", "port", "expected"),
+    [
+        (True, 443, "wss://h.example.test"),
+        (True, 6001, "wss://h.example.test:6001"),
+        (False, 80, "ws://h.example.test"),
+        (False, 6001, "ws://h.example.test:6001"),
+        (False, 443, "ws://h.example.test:443"),
+        (True, 80, "wss://h.example.test:80"),
+    ],
+)
+def test_connection_url_building(tls: bool, port: int, expected: str) -> None:
+    from deapi_sdk.types import WebSocketConnection
+
+    conn = WebSocketConnection(protocol="pusher", key="k", host="h.example.test", port=port, tls=tls)
+    assert conn.url == expected

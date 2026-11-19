@@ -17,8 +17,6 @@ from urllib.parse import quote, urlencode, urlsplit
 
 PROTOCOL_VERSION = 7
 
-DEFAULT_WS_URL = "wss://soketi.deapi.ai"
-DEFAULT_APP_KEY = "depin-api-prod-key"
 BROADCASTING_AUTH_PATH = "/broadcasting/auth"
 
 STATUS_EVENT = "request.status.updated"
@@ -50,11 +48,16 @@ class CloseAction(Enum):
     RECONNECT = "reconnect"  # reconnect immediately
 
 
-def build_url(ws_url: str, app_key: str, client_version: str) -> str:
-    """Build the connection URL: ``{ws_url}/app/{app_key}?protocol=7&client=...&version=...``."""
+def check_ws_url(ws_url: str) -> None:
+    """Raise ``ValueError`` unless ``ws_url`` is a ``ws://`` or ``wss://`` URL."""
     parts = urlsplit(ws_url)
     if parts.scheme not in ("ws", "wss") or not parts.netloc:
         raise ValueError(f"ws_url must be a ws:// or wss:// URL, got {ws_url!r}")
+
+
+def build_url(ws_url: str, app_key: str, client_version: str) -> str:
+    """Build the connection URL: ``{ws_url}/app/{app_key}?protocol=7&client=...&version=...``."""
+    check_ws_url(ws_url)
     if not app_key:
         raise ValueError("app_key must not be empty")
     query = urlencode({"protocol": PROTOCOL_VERSION, "client": "deapi-python", "version": client_version})

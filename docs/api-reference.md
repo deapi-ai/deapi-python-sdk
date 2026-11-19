@@ -58,6 +58,7 @@ account and key-management endpoints.
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `client.balance()` | `Balance` | Account balance (ADMIN key) |
+| `client.websocket_config()` | `WebSocketConfig` | Realtime WebSocket parameters of the account (`GET /websocket`, any key) |
 | `client.close()` | `None` | Close the HTTP connection |
 
 **Resources:** `images`, `audio`, `video`, `transcription`, `embeddings`, `ocr`, `prompts`, `models`,
@@ -569,17 +570,38 @@ Live job status over one WebSocket connection. Needs the optional extra:
 
 ```python
 rt = client.realtime(
-    client_id: str | int | None = None,  # "Client ID" from the dashboard; falls back to DEAPI_CLIENT_ID
+    client_id: str | int | None = None,  # "Client ID" from the dashboard; falls back to DEAPI_CLIENT_ID, then discovery
     *,
-    ws_url: str | None = None,           # falls back to DEAPI_WS_URL (default "wss://soketi.deapi.ai")
-    app_key: str | None = None,          # falls back to DEAPI_WS_APP_KEY (default: the public app key)
+    ws_url: str | None = None,           # falls back to DEAPI_WS_URL, then discovery
+    app_key: str | None = None,          # falls back to DEAPI_WS_APP_KEY, then discovery
     connect_timeout: float = 30.0,
 ) -> Realtime                            # AsyncDeapiClient: AsyncRealtime
 ```
 
-`client_id` is an opaque string. The environment variable is used only when the argument is not
-passed; an explicit argument always wins. Servers handling many users should pass it per user.
-`ws_url` and `app_key` are only needed for non-production environments.
+Every parameter is optional. Per field the precedence is: explicit argument, then the environment
+variable, then the value from `GET /websocket` (`client.websocket_config()`, below).
+When `client_id`, `ws_url` and `app_key` are all set (arguments or environment), no extra request is
+made. Otherwise the SDK fetches the parameters **once at connect time** (`connect()` / `with` /
+`await connect()` / `async with`; constructors do no I/O), fills only the missing fields and keeps the
+result for reconnects. When discovery ran, the returned `auth_endpoint` is used to authorize the channel.
+
+`client_id` is an opaque string; servers handling many users should pass it per user. Until connect,
+`rt.client_id` is `None` if it was neither passed nor set in the environment. A failed discovery call
+raises the normal API exception (for example `AuthenticationError`); a malformed response, an unsupported
+`connection.protocol` or an unexpected `event` raises `RealtimeError`.
+
+### `client.websocket_config()`
+
+```python
+cfg = client.websocket_config()          # AsyncDeapiClient: await client.websocket_config()
+cfg.client_id                            # UUID string of the account's channel owner
+cfg.channel                              # "private-client.<client_id>"
+cfg.event                                # "request.status.updated"
+cfg.auth_endpoint                        # URL that authorizes the private channel
+cfg.connection.url                       # "wss://host" (port only when non-default)
+```
+
+`GET /websocket` works with any API key and returns no secrets. See `WebSocketConfig` under Types.
 
 ### `Realtime` / `AsyncRealtime`
 
@@ -647,6 +669,21 @@ class JobStatusEvent(BaseModel):            # realtime status event
 
 class PriceResult(BaseModel):  price: float
 class Balance(BaseModel):      balance: float
+
+class WebSocketConnection(BaseModel):
+    protocol: str                           # "pusher"
+    key: str                                # public application key
+    host: str
+    port: int
+    tls: bool
+    url: str                                # property: "wss://host" / "ws://host[:port]"
+
+class WebSocketConfig(BaseModel):
+    client_id: str
+    channel: str                            # "private-client.<client_id>"
+    event: str                              # "request.status.updated"
+    auth_endpoint: str | None
+    connection: WebSocketConnection
 class ModelsResponse(BaseModel):  data: list[ModelInfo]; links; meta   # meta.current_page, last_page, per_page, total
 class EnhancePromptResult(BaseModel):  prompt: str; negative_prompt: str | None
 ```
@@ -810,6 +847,8 @@ it with a TTL longer than `tolerance`) so a retried or replayed delivery is proc
 | `DEAPI_BASE_URL` | `https://api.deapi.ai` | API base URL |
 | `DEAPI_API_VERSION` | `v2` | API version (only `v2` is accepted) |
 | `DEAPI_FILL_MODEL_DEFAULTS` | on | `0` stops the SDK filling unset parameters from model-card defaults |
-| `DEAPI_CLIENT_ID` | *(none)* | Client ID for `client.realtime()` when `client_id` is not passed |
-| `DEAPI_WS_URL` | `wss://soketi.deapi.ai` | WebSocket URL (non-production environments only) |
-| `DEAPI_WS_APP_KEY` | public app key | WebSocket app key (non-production environments only) |
+| `DEAPI_CLIENT_ID` | *(discovered)* | Client ID for `client.realtime()` when `client_id` is not passed |
+| `DEAPI_WS_URL` | *(discovered)* | WebSocket URL override for `client.realtime()` |
+| `DEAPI_WS_APP_KEY` | *(discovered)* | WebSocket app key override for `client.realtime()` |
+
+Unset realtime values are fetched from `GET /websocket` at connect time.

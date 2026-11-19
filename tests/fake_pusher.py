@@ -82,6 +82,10 @@ class FakePusherServer:
         self.stop()
 
     @property
+    def port(self) -> int:
+        return self._port
+
+    @property
     def url(self) -> str:
         return f"ws://127.0.0.1:{self._port}"
 

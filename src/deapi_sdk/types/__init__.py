@@ -28,6 +28,7 @@ from deapi_sdk.types.video import (
     VideoEvent,
     parse_video_description,
 )
+from deapi_sdk.types.websocket import WebSocketConfig, WebSocketConnection
 
 __all__ = [
     "Account",
@@ -61,5 +62,7 @@ __all__ = [
     "UsageReport",
     "VideoDescription",
     "VideoEvent",
+    "WebSocketConfig",
+    "WebSocketConnection",
     "parse_video_description",
 ]
