@@ -56,4 +56,6 @@ ENDPOINTS: dict[str, str] = {
     # Catalogue and jobs
     "models": "models",
     "request_status": "jobs",
+    # Realtime WebSocket parameters of the calling key's account (any role)
+    "websocket": "websocket",
 }

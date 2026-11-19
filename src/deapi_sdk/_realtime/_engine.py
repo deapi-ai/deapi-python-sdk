@@ -91,8 +91,8 @@ class Engine:
     def __init__(
         self,
         *,
-        url: str,
-        channel: str,
+        url: str | None,
+        channel: str | None,
         authorize: Authorizer,
         user_agent: str,
         connect_timeout: float,
@@ -100,8 +100,8 @@ class Engine:
         pong_timeout: float = 30.0,
         max_activity_timeout: float = 120.0,
     ) -> None:
-        self._url = url
-        self._channel = channel
+        self._url: str = url or ""
+        self._channel: str = channel or ""
         self._authorize = authorize
         self._user_agent = user_agent
         self._connect_timeout = connect_timeout
@@ -161,6 +161,13 @@ class Engine:
         """True while the channel subscription is active."""
         return self._connected
 
+    def configure(self, url: str, channel: str) -> None:
+        """Set the target when it was not known at construction (discovered at connect time)."""
+        if self._started:
+            raise RealtimeError("Cannot reconfigure a started realtime session.")
+        self._url = url
+        self._channel = channel
+
     def require_started(self) -> None:
         """Raise unless :meth:`start` was called (a closed engine is fine: consumers get :class:`Closed`)."""
         if not self._started:
@@ -178,6 +185,8 @@ class Engine:
         if self._started:
             raise RealtimeError("This realtime session was already started; create a new one to reconnect.")
         require_websockets()
+        if not self._url or not self._channel:
+            raise RealtimeError("The realtime session has no WebSocket URL or channel configured.")
         self._started = True
         self._ready = asyncio.Event()
         self._task = asyncio.create_task(self._run(), name="deapi-realtime")

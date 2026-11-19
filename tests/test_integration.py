@@ -270,3 +270,57 @@ class TestAsyncIntegration:
         params.pop("prompt")
         price = await live_async_client.images.generate_price(prompt="test", **params)
         assert price.price > 0
+
+
+# ---------------------------------------------------------------------------
+# Realtime (WebSocket) — settings discovered from GET /websocket
+# ---------------------------------------------------------------------------
+
+_WS_ENV = ("DEAPI_CLIENT_ID", "DEAPI_WS_URL", "DEAPI_WS_APP_KEY")
+
+
+class TestRealtimeIntegration:
+    @requires_api_key
+    def test_websocket_config(self, live_client: DeapiClient) -> None:
+        cfg = live_client.websocket_config()
+        assert cfg.client_id
+        assert cfg.channel == f"private-client.{cfg.client_id}"
+        assert cfg.event == "request.status.updated"
+        assert cfg.connection.protocol == "pusher"
+        assert cfg.connection.url.startswith(("ws://", "wss://"))
+
+    @requires_api_key
+    def test_realtime_connects_with_discovered_settings(
+        self, live_client: DeapiClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        for name in _WS_ENV:
+            monkeypatch.delenv(name, raising=False)
+        expected = live_client.websocket_config().client_id
+        with live_client.realtime() as rt:
+            assert rt.connected
+            assert rt.client_id == expected
+
+    @requires_api_key
+    def test_realtime_wait(self, live_client: DeapiClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Submit a job and follow it to completion over the WebSocket."""
+        for name in _WS_ENV:
+            monkeypatch.delenv(name, raising=False)
+        model = _find_model(live_client, "txt2img")
+        assert model, "No txt2img model available"
+        with live_client.realtime() as rt:
+            job = live_client.images.generate(**_build_txt2img_params(model))
+            events: list[Any] = []
+            result = rt.wait(job, max_wait=180.0, on_progress=events.append)
+        assert result.status == JobStatus.DONE
+        assert result.result_url is not None
+
+    @requires_api_key
+    async def test_async_realtime_connects_with_discovered_settings(
+        self, live_async_client: AsyncDeapiClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        for name in _WS_ENV:
+            monkeypatch.delenv(name, raising=False)
+        expected = (await live_async_client.websocket_config()).client_id
+        async with live_async_client.realtime() as rt:
+            assert rt.connected
+            assert rt.client_id == expected

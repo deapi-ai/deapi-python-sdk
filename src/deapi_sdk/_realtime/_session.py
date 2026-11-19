@@ -16,10 +16,12 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 from deapi_sdk._exceptions import RealtimeError
 from deapi_sdk._polling import AsyncJob, Job, _timeout_error
 from deapi_sdk._realtime import _protocol as protocol
+from deapi_sdk._realtime._discovery import parse_websocket_config
 from deapi_sdk._realtime._engine import RECONNECTED, Closed, Engine, SinkItem
 from deapi_sdk._types import JobStatus
 from deapi_sdk._version import __version__
 from deapi_sdk.types.common import JobResult, JobStatusEvent
+from deapi_sdk.types.websocket import WebSocketConfig
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -59,8 +61,16 @@ def _is_terminal(result: JobResult) -> bool:
     return result.status in _TERMINAL
 
 
+def _env(name: str) -> str | None:
+    return os.environ.get(name, "").strip() or None
+
+
 class _Settings:
-    """Connection settings resolved from arguments, then environment, then public defaults."""
+    """Connection settings: argument, then environment, then the account's ``GET /websocket`` response.
+
+    Nothing here does I/O. When an argument/environment value is missing, :meth:`apply`
+    fills the gaps from the discovery response at connect time (once; the result is cached).
+    """
 
     def __init__(
         self,
@@ -71,24 +81,46 @@ class _Settings:
         connect_timeout: float,
     ) -> None:
         config = http._config
-        resolved_id = str(client_id).strip() if client_id is not None else os.environ.get("DEAPI_CLIENT_ID", "").strip()
-        if not resolved_id:
-            raise ValueError(
-                "client_id is required: pass client_id= (the Client ID shown in your deAPI dashboard) "
-                "or set the DEAPI_CLIENT_ID environment variable."
-            )
         if connect_timeout <= 0:
             raise ValueError("connect_timeout must be positive")
-        self.client_id = resolved_id
-        self.channel = protocol.channel_for(resolved_id)
-        self.url = protocol.build_url(
-            ws_url or os.environ.get("DEAPI_WS_URL") or protocol.DEFAULT_WS_URL,
-            app_key or os.environ.get("DEAPI_WS_APP_KEY") or protocol.DEFAULT_APP_KEY,
-            __version__,
+        self.client_id: str | None = (str(client_id).strip() if client_id is not None else None) or _env(
+            "DEAPI_CLIENT_ID"
         )
+        self._ws_url = ws_url or _env("DEAPI_WS_URL")
+        self._app_key = app_key or _env("DEAPI_WS_APP_KEY")
+        if self._ws_url is not None:
+            protocol.check_ws_url(self._ws_url)
+        self.channel: str | None = None
+        self.url: str | None = None
+        self.discovered = False
         self.auth_url = f"{config.base_url.rstrip('/')}{protocol.BROADCASTING_AUTH_PATH}"
+        self.discovery_url: str = http._resolve_endpoint("websocket")
         self.user_agent = config._user_agent
         self.connect_timeout = connect_timeout
+        if self.client_id and self._ws_url and self._app_key:
+            self._finish(self.client_id, self._ws_url, self._app_key, protocol.channel_for(self.client_id))
+
+    @property
+    def ready(self) -> bool:
+        return self.url is not None
+
+    def _finish(self, client_id: str, ws_url: str, app_key: str, channel: str) -> None:
+        self.client_id = client_id
+        self.channel = channel
+        self.url = protocol.build_url(ws_url, app_key, __version__)
+
+    def apply(self, discovered: WebSocketConfig) -> None:
+        """Fill every missing field from the discovery response (explicit values keep precedence)."""
+        conn = discovered.connection
+        if self.client_id:
+            client_id, channel = self.client_id, protocol.channel_for(self.client_id)
+        else:
+            # The server's channel is authoritative for the account it announced.
+            client_id, channel = discovered.client_id.strip(), discovered.channel
+        self._finish(client_id, self._ws_url or conn.url, self._app_key or conn.key, channel)
+        if discovered.auth_endpoint:
+            self.auth_url = discovered.auth_endpoint
+        self.discovered = True
 
 
 def _auth_signature(resp: Any) -> str:
@@ -146,8 +178,13 @@ class AsyncRealtime:
         )
 
     @property
-    def client_id(self) -> str:
+    def client_id(self) -> str | None:
+        """The Client ID, or ``None`` until :meth:`connect` when it was not passed or set in the environment."""
         return self._settings.client_id
+
+    def _discovered(self, config: WebSocketConfig) -> None:
+        self._settings.apply(config)
+        self._engine.configure(self._settings.url or "", self._settings.channel or "")
 
     @property
     def connected(self) -> bool:
@@ -155,7 +192,13 @@ class AsyncRealtime:
         return self._engine.connected
 
     async def connect(self) -> None:
-        """Open the connection and subscribe. Raises :class:`RealtimeError` if that fails."""
+        """Open the connection and subscribe. Raises :class:`RealtimeError` if that fails.
+
+        Connection parameters that were not supplied are fetched first from ``GET /websocket``.
+        """
+        if not self._settings.ready:
+            resp = await self._http.get(self._settings.discovery_url)
+            self._discovered(parse_websocket_config(resp))
         await self._engine.start()
 
     async def close(self) -> None:
@@ -351,8 +394,13 @@ class Realtime:
         self._lock = threading.Lock()
 
     @property
-    def client_id(self) -> str:
+    def client_id(self) -> str | None:
+        """The Client ID, or ``None`` until :meth:`connect` when it was not passed or set in the environment."""
         return self._settings.client_id
+
+    def _discovered(self, config: WebSocketConfig) -> None:
+        self._settings.apply(config)
+        self._engine.configure(self._settings.url or "", self._settings.channel or "")
 
     @property
     def connected(self) -> bool:
@@ -360,7 +408,15 @@ class Realtime:
         return self._engine.connected
 
     def connect(self) -> None:
-        """Open the connection and subscribe. Raises :class:`RealtimeError` if that fails."""
+        """Open the connection and subscribe. Raises :class:`RealtimeError` if that fails.
+
+        Connection parameters that were not supplied are fetched first from ``GET /websocket``
+        (a blocking HTTP call in the calling thread).
+        """
+        with self._lock:
+            started = self._thread is not None
+        if not started and not self._settings.ready:
+            self._discovered(parse_websocket_config(self._http.get(self._settings.discovery_url)))
         with self._lock:
             if self._thread is not None:
                 raise RealtimeError("This realtime session was already started; create a new one to reconnect.")
