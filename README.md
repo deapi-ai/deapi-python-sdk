@@ -302,6 +302,7 @@ print(f"Cost: ${price.price}")
 
 ```python
 client.balance().balance                        # ADMIN key only
+client.websocket_config()                       # realtime connection settings (any role)
 
 client.account.get()                            # balance, currency, auto top-up (ADMIN)
 client.account.usage(group_by="day")            # from_=, to=; group_by day|hour|key|type|model
