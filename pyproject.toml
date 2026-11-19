@@ -47,6 +47,7 @@ dev = [
 Homepage = "https://deapi.ai"
 Documentation = "https://docs.deapi.ai/other/sdks-and-integrations"
 Repository = "https://github.com/deapi-ai/deapi-python-sdk"
+Changelog = "https://github.com/deapi-ai/deapi-python-sdk/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/deapi_sdk"]
