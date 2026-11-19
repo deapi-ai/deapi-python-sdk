@@ -1,4 +1,4 @@
-"""Webhook signature verification for DeAPI webhook events."""
+"""Webhook signature verification for deAPI webhook events."""
 from __future__ import annotations
 
 import hashlib

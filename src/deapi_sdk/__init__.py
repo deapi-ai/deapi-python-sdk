@@ -1,4 +1,4 @@
-"""DeAPI Python SDK — Official client for the DeAPI distributed AI inference platform."""
+"""deAPI Python SDK — Official client for the deAPI distributed AI inference platform."""
 
 from __future__ import annotations
 
@@ -115,7 +115,7 @@ def _attach_resources_async(client: AsyncDeapiClient) -> None:
 
 
 class DeapiClient:
-    """Synchronous DeAPI client.
+    """Synchronous deAPI client.
 
     ``fill_model_defaults`` (default on; env ``DEAPI_FILL_MODEL_DEFAULTS=0`` disables): generation
     parameters you leave unset (width, height, steps, frames, fps, lang, ...) are taken from the
@@ -234,7 +234,7 @@ class DeapiClient:
 
 
 class AsyncDeapiClient:
-    """Asynchronous DeAPI client.
+    """Asynchronous deAPI client.
 
     Takes the same ``fill_model_defaults`` option as :class:`DeapiClient`.
 

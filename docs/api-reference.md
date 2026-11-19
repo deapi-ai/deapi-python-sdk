@@ -1,4 +1,4 @@
-# DeAPI Python SDK — API Reference
+# deAPI Python SDK — API Reference
 
 Reference for the classes, methods and types in the `deapi_sdk` package. It describes deAPI API **v2**, the only version supported since 0.4.0 (see
 [Upgrading to 0.5.0](../README.md#upgrading-to-050) and [Upgrading to 0.4.0](../README.md#upgrading-to-040) for the breaking changes). The HTTP API itself is documented at <https://docs.deapi.ai>.

@@ -1,6 +1,6 @@
 """Webhook server example.
 
-Demonstrates how to receive and verify DeAPI webhook notifications
+Demonstrates how to receive and verify deAPI webhook notifications
 using Flask. Works with FastAPI too (see comments).
 
 Usage:
@@ -24,7 +24,7 @@ WEBHOOK_SECRET = os.environ.get("DEAPI_WEBHOOK_SECRET", "")
 
 @app.route("/webhooks/deapi", methods=["POST"])
 def handle_webhook() -> tuple:
-    """Handle incoming DeAPI webhook notifications."""
+    """Handle incoming deAPI webhook notifications."""
     payload = request.get_data()
 
     # Extract security headers

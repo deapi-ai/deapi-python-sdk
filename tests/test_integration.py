@@ -1,4 +1,4 @@
-"""Integration tests that run against the production DeAPI server.
+"""Integration tests that run against the production deAPI server.
 
 These tests are excluded by default (``addopts = "-m 'not integration'"`` in pyproject.toml).
 Run them explicitly:

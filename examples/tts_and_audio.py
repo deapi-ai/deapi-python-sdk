@@ -17,7 +17,7 @@ client = DeapiClient()
 
 print("Generating speech...")
 job = client.audio.synthesize(
-    text="Hello! Welcome to DeAPI, the distributed AI inference platform.",
+    text="Hello! Welcome to deAPI, the distributed AI inference platform.",
     model="Kokoro",
     voice="af_sky",
     lang="en-us",
@@ -54,7 +54,7 @@ price = client.audio.synthesize_price(
     format="mp3",
     speed=1.0,
     sample_rate=24000,
-    text="Hello! Welcome to DeAPI.",
+    text="Hello! Welcome to deAPI.",
 )
 print(f"\nTTS price: ${price.price}")
 
