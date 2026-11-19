@@ -1,10 +1,10 @@
-# DeAPI Python SDK
+# deAPI Python SDK
 
 [![CI](https://github.com/deapi-ai/deapi-python-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/deapi-ai/deapi-python-sdk/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-Official Python SDK for the [DeAPI](https://deapi.ai) distributed AI inference platform. API details live in the [DeAPI docs](https://docs.deapi.ai).
+Official Python SDK for the [deAPI](https://deapi.ai) distributed AI inference platform. API details live in the [deAPI docs](https://docs.deapi.ai).
 
 Generate images, videos, audio, transcriptions, embeddings, and more — all through a clean, type-safe Python interface with sync and async support.
 
@@ -56,7 +56,7 @@ pytest                     # unit tests only; `pytest -m integration` runs paid 
 
 ## API keys
 
-Create a key in your [DeAPI dashboard](https://deapi.ai). Current keys look like
+Create a key in your [deAPI dashboard](https://deapi.ai). Current keys look like
 `sk-dp-<id>-<secret>` (older `<id>|<secret>` keys keep working). Keep them out of source control:
 use an environment variable or a `.env` file (see [`.env.example`](.env.example)).
 
@@ -215,7 +215,7 @@ from pathlib import Path
 
 # Text-to-speech
 job = client.audio.synthesize(
-    text="Hello, welcome to DeAPI!",
+    text="Hello, welcome to deAPI!",
     model="Kokoro",
     voice="af_sky",
     lang="en-us",
