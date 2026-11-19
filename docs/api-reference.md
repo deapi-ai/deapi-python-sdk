@@ -3,8 +3,7 @@
 Reference for the classes, methods and types in the `deapi_sdk` package. It describes deAPI API **v2**, the only version supported since 0.4.0 (see
 [Upgrading to 0.5.0](../README.md#upgrading-to-050) and [Upgrading to 0.4.0](../README.md#upgrading-to-040) for the breaking changes). The HTTP API itself is documented at <https://docs.deapi.ai>.
 
-Install: `pip install git+https://github.com/deapi-ai/deapi-python-sdk.git` (not on PyPI yet;
-`pip install deapi` is an unrelated package).
+Install: `pip install deapi-sdk` (`pip install deapi` is an unrelated package).
 
 ## Table of Contents
 
@@ -563,7 +562,7 @@ has the same interface with `async` methods.
 ## Realtime (WebSocket)
 
 Live job status over one WebSocket connection. Needs the optional extra:
-`pip install "deapi-sdk[ws] @ git+https://github.com/deapi-ai/deapi-python-sdk.git"` (installs
+`pip install "deapi-sdk[ws]"` (installs
 `websockets` 17.x). Without it, connecting raises `ImportError`.
 
 ### `client.realtime()`

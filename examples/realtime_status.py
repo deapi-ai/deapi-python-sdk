@@ -4,7 +4,7 @@ Opens one WebSocket connection, submits an image generation and follows its prog
 With --watch it just prints every status event on your channel (all of your jobs).
 
 Requires the optional extra:
-    pip install "deapi-sdk[ws] @ git+https://github.com/deapi-ai/deapi-python-sdk.git"
+    pip install "deapi-sdk[ws]"
 
 Usage:
     export DEAPI_API_KEY="sk-dp-<id>-<secret>"
